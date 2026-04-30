@@ -1,0 +1,212 @@
+<template>
+  <div class="employees">
+    <v-card class="mb-4">
+      <v-card-title>Add New Employee</v-card-title>
+      <v-card-text>
+        <v-form @submit.prevent="addNewEmployee">
+          <v-row>
+            <v-col cols="12" md="4">
+              <v-text-field 
+                v-model="form.name" 
+                label="Employee Name" 
+                required 
+                variant="outlined"
+              />
+            </v-col>
+            <v-col cols="12" md="4">
+              <v-text-field 
+                v-model="form.phone" 
+                label="WhatsApp Phone No."
+                placeholder="919876543210"
+                variant="outlined"
+              />
+            </v-col>
+            <v-col cols="12" md="4">
+              <v-text-field 
+                v-model.number="form.deductionPercentage" 
+                label="Deduction %" 
+                type="number" 
+                required 
+                suffix="%"
+                variant="outlined"
+              />
+            </v-col>
+            <v-col cols="12">
+              <v-btn 
+                type="submit" 
+                color="success" 
+                prepend-icon="mdi-plus"
+                :loading="store.loading"
+                text="Add Employee"
+              />
+            </v-col>
+          </v-row>
+        </v-form>
+      </v-card-text>
+    </v-card>
+
+    <!-- Error Message -->
+    <v-alert v-if="store.error" type="error" class="mb-4">
+      {{ store.error }}
+    </v-alert>
+
+    <!-- Employees List -->
+    <v-card>
+      <v-card-title>Employees List ({{ store.employees.length }})</v-card-title>
+      <v-data-table
+        :headers="headers"
+        :items="safeEmployees"
+        item-value="_rowKey"
+        :items-per-page="10"
+      >
+        <template v-slot:item.deductionPercentage="{ item }">
+          {{ item.deductionPercentage }}%
+        </template>
+        <template v-slot:item.status="{ item }">
+          <v-chip 
+            :color="item.status === 'active' ? 'green' : 'red'" 
+            :text="item.status"
+          />
+        </template>
+        <template v-slot:item.actions="{ item }">
+          <div class="d-flex">
+            <v-btn 
+              size="small" 
+              variant="text" 
+              icon="mdi-pencil"
+              @click="editEmployee(item)"
+            />
+            <v-btn 
+              size="small" 
+              variant="text" 
+              icon="mdi-delete"
+              color="error"
+              @click="deleteEmployee(item)"
+            />
+          </div>
+        </template>
+      </v-data-table>
+    </v-card>
+
+    <!-- Edit Dialog -->
+    <v-dialog v-model="editDialog" max-width="500">
+      <v-card>
+        <v-card-title>Edit Employee</v-card-title>
+        <v-card-text>
+          <v-form @submit.prevent="saveEmployee">
+            <v-text-field 
+              v-model="editForm.name" 
+              label="Employee Name" 
+              variant="outlined"
+              class="mb-3"
+            />
+            <v-text-field 
+              v-model="editForm.phone"
+              label="WhatsApp Phone No."
+              placeholder="919876543210"
+              variant="outlined"
+              class="mb-3"
+            />
+            <v-text-field 
+              v-model.number="editForm.deductionPercentage" 
+              label="Deduction %" 
+              type="number" 
+              suffix="%"
+              variant="outlined"
+            />
+          </v-form>
+        </v-card-text>
+        <v-card-actions>
+          <v-btn text="Cancel" @click="editDialog = false" />
+          <v-btn 
+            color="primary" 
+            @click="saveEmployee"
+            :loading="store.loading"
+            text="Save"
+          />
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, computed } from 'vue'
+import { usePayrollStore } from '@/stores/payroll'
+import { useConfirm } from '@/composables/useConfirm'
+
+const store = usePayrollStore()
+const { confirm } = useConfirm()
+
+const headers = [
+  { title: 'Name', key: 'name' },
+  { title: 'Phone', key: 'phone' },
+  { title: 'Deduction', key: 'deductionPercentage' },
+  { title: 'Status', key: 'status' },
+  { title: 'Actions', key: 'actions', sortable: false }
+]
+
+const safeEmployees = computed(() =>
+  (store.employees || []).map((employee, index) => ({
+    ...employee,
+    _rowKey: employee?._id || employee?.employeeId || `${employee?.name || 'employee'}-${index}`
+  }))
+)
+
+const form = reactive({
+  name: '',
+  phone: '',
+  deductionPercentage: 20
+})
+
+const editDialog = ref(false)
+const editForm = reactive({
+  id: '',
+  name: '',
+  phone: '',
+  deductionPercentage: 0
+})
+
+const formatNumber = (num) => {
+  return new Intl.NumberFormat('en-IN').format(num)
+}
+
+const addNewEmployee = async () => {
+  if (form.name && form.deductionPercentage >= 0) {
+    const success = await store.addEmployee(
+      form.name,
+      form.deductionPercentage,
+      form.phone
+    )
+    if (success) {
+      form.name = ''
+      form.phone = ''
+      form.deductionPercentage = 20
+    }
+  }
+}
+
+const editEmployee = (employee) => {
+  editForm.id = employee._id
+  editForm.name = employee.name
+  editForm.phone = employee.phone || ''
+  editForm.deductionPercentage = employee.deductionPercentage
+  editDialog.value = true
+}
+
+const saveEmployee = async () => {
+  await store.updateEmployee(
+    editForm.id,
+    editForm.name,
+    editForm.deductionPercentage,
+    editForm.phone
+  )
+  editDialog.value = false
+}
+
+const deleteEmployee = async (employee) => {
+  const ok = await confirm(`Delete ${employee.name}? This will permanently remove all their salary records and payment history.`)
+  if (!ok) return
+  await store.removeEmployee(employee._id)
+}
+</script>

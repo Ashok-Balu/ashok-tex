@@ -1,0 +1,254 @@
+// ── Ashok Tex Global Styles ───────────────────────────────────────────────────
+
+:root {
+  --at-font:      'DM Sans', 'Noto Sans Tamil', sans-serif;
+  --at-bg:        #F0F4F8;
+  --at-card:      #FFFFFF;
+  --at-border:    #E0E7EF;
+  --at-text:      #1A2744;
+  --at-muted:     #5A6A85;
+  --at-primary:   #1565C0;
+  --at-accent:    #F57C00;
+  --at-success:   #2E7D32;
+  --at-danger:    #C62828;
+  --at-radius:    12px;
+  --at-shadow:    0 2px 12px rgba(21, 101, 192, 0.10);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--at-font) !important;
+  background:
+    radial-gradient(1000px 420px at -10% -20%, rgba(21, 101, 192, 0.15), transparent 55%),
+    radial-gradient(900px 380px at 110% -10%, rgba(46, 125, 50, 0.12), transparent 58%),
+    var(--at-bg);
+}
+
+// ── AG Grid Theme Overrides ────────────────────────────────────────────────────
+.ag-theme-quartz {
+  --ag-font-family: var(--at-font);
+  --ag-font-size: 13px;
+  --ag-header-background-color: #F8FAFD;
+  --ag-header-foreground-color: #5A6A85;
+  --ag-row-hover-color: #F0F7FF;
+  --ag-selected-row-background-color: #E3F2FD;
+  --ag-border-color: #E0E7EF;
+  --ag-cell-horizontal-padding: 14px;
+  --ag-row-height: 44px;
+  --ag-header-height: 42px;
+  border-radius: var(--at-radius);
+  overflow: hidden;
+
+  .ag-header-cell-label {
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .ag-header-cell-text,
+  .ag-cell-value,
+  .ag-group-value {
+    color: #1A2744;
+  }
+
+  .ag-row {
+    border-bottom: 1px solid #F0F4F8;
+  }
+
+  .ag-paging-panel {
+    border-top: 1px solid var(--at-border);
+    font-size: 12px;
+    color: var(--at-muted);
+  }
+}
+
+// ── Page Layout ────────────────────────────────────────────────────────────────
+.page-container {
+  padding: 24px;
+  background: transparent;
+  min-height: calc(100vh - 64px);
+  animation: at-rise-in 0.35s ease;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  .page-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--at-text);
+    line-height: 1.2;
+  }
+  .page-sub {
+    font-size: 13px;
+    color: var(--at-muted);
+    margin-top: 3px;
+  }
+}
+
+// ── AT Card ────────────────────────────────────────────────────────────────────
+.at-card {
+  background: var(--at-card) !important;
+  border: 1px solid var(--at-border) !important;
+  border-radius: var(--at-radius) !important;
+  box-shadow: var(--at-shadow) !important;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.at-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 26px rgba(16, 42, 67, 0.12) !important;
+}
+
+// ── Stat Cards ─────────────────────────────────────────────────────────────────
+.stat-card {
+  @extend .at-card;
+  padding: 20px;
+  .stat-icon {
+    width: 46px; height: 46px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .stat-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--at-muted); font-weight: 600; margin-bottom: 4px;
+  }
+  .stat-value {
+    font-size: 26px; font-weight: 800; color: var(--at-text); line-height: 1;
+  }
+  .stat-sub { font-size: 12px; color: var(--at-muted); margin-top: 4px; }
+}
+
+// ── Status Chips ───────────────────────────────────────────────────────────────
+.chip-active   { background: #E3F2FD !important; color: #1565C0 !important; font-weight: 700 !important; }
+.chip-done     { background: #E8F5E9 !important; color: #2E7D32 !important; font-weight: 700 !important; }
+.chip-pending  { background: #FFF3E0 !important; color: #E65100 !important; font-weight: 700 !important; }
+.chip-paid     { background: #E8F5E9 !important; color: #2E7D32 !important; font-weight: 700 !important; }
+.chip-partial  { background: #F3E5F5 !important; color: #7B1FA2 !important; font-weight: 700 !important; }
+.chip-morning  { background: #E3F2FD !important; color: #1565C0 !important; font-weight: 700 !important; }
+.chip-night    { background: #EDE7F6 !important; color: #4527A0 !important; font-weight: 700 !important; }
+
+// ── Progress bar ───────────────────────────────────────────────────────────────
+.at-progress {
+  height: 6px; border-radius: 6px; background: #E0E7EF; overflow: hidden;
+  .at-progress-fill {
+    height: 100%; border-radius: 6px; transition: width 0.6s ease;
+  }
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────────
+.at-sidebar {
+  background: #0D1B3E !important;
+  border-right: none !important;
+
+  .sidebar-logo {
+    padding: 20px 16px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    .logo-title { font-size: 17px; font-weight: 800; color: #fff; line-height: 1.1; }
+    .logo-sub { font-size: 9px; color: rgba(255,255,255,0.4); letter-spacing: 2px; text-transform: uppercase; }
+  }
+
+  .v-list-item {
+    border-radius: 10px !important;
+    margin: 2px 8px !important;
+    color: rgba(255,255,255,0.55) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    transition: all 0.18s !important;
+
+    &:hover { background: rgba(255,255,255,0.08) !important; color: #fff !important; }
+
+    &--active {
+      background: var(--at-primary) !important;
+      color: #fff !important;
+      font-weight: 700 !important;
+    }
+  }
+  .v-list-item__prepend .v-icon { color: inherit !important; }
+}
+
+// ── Top Bar ────────────────────────────────────────────────────────────────────
+.at-appbar {
+  background: #fff !important;
+  border-bottom: 1px solid var(--at-border) !important;
+  box-shadow: none !important;
+}
+
+// ── Dialog overrides ───────────────────────────────────────────────────────────
+.v-dialog > .v-overlay__content > .v-card {
+  border-radius: 16px !important;
+}
+
+// ── Login ──────────────────────────────────────────────────────────────────────
+.login-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0A1628 0%, #1565C0 60%, #0D47A1 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+
+// ── Vuetify overrides ──────────────────────────────────────────────────────────
+.v-btn { text-transform: none !important; letter-spacing: 0 !important; }
+.v-field {
+  border-radius: 12px !important;
+  transition: box-shadow 0.18s ease;
+}
+
+.v-field.v-field--focused {
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12);
+}
+
+.v-data-table { border-radius: var(--at-radius) !important; }
+
+.v-dialog > .v-overlay__content {
+  animation: at-pop-in 0.22s ease;
+}
+
+// ── Transitions ────────────────────────────────────────────────────────────────
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+@keyframes at-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes at-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// ── Form Layouts ───────────────────────────────────────────────────────────────
+.prod-form, .nool-form {
+  .v-field { background: #FAFBFC !important; }
+  .v-col { padding-bottom: 8px; }
+}
+
+.prod-form-actions, .nool-form-actions {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  
+  &.is-editing {
+    .prod-submit-btn, .nool-add-btn { flex: 1; }
+  }
+}
