@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: ashok-tex-backend
+    env: node
+    region: oregon
+    plan: free
+    
+    buildCommand: npm install
+    startCommand: npm start
+    
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGO_URI
+        fromDatabase:
+          name: mongodb
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CORS_ORIGIN
+        value: https://ashok-tex.vercel.app
+      - key: CLIENT_URL
+        value: https://ashok-tex.vercel.app
+      - key: CLOUDINARY_NAME
+        value: Root
+      - key: CLOUDINARY_KEY
+        value: 147117228816599
+      - key: CLOUDINARY_SECRET
+        value: DCF-Nt0jnq8eQKZ3V3lmf3lxiM4
+      
+    rootDir: backend
+    
+    headers:
+      - path: /api/*
+        name: Access-Control-Allow-Origin
+        value: https://ashok-tex.vercel.app
