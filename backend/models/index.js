@@ -27,13 +27,16 @@ const orderSchema = new Schema({
   ratePerMeter:  { type: Number, default: 0 },
   deductionPct:  { type: Number, default: 20 },
   totalReceived: { type: Number, default: 0 },
-  status:        { type: String, enum: ['active', 'completed'], default: 'active' },
-  sampleImage:   { type: String, default: '' },
+  status:            { type: String, enum: ['active', 'completed'], default: 'active' },
+  sampleImage:       { type: String, default: '' },
+  manuallyCompleted: { type: Boolean, default: false },
 }, { timestamps: true })
 
-// Auto status
+// Auto status — skip if manually completed by user
 orderSchema.pre('save', function (next) {
-  this.status = (this.producedMeter >= this.expectedMeter && this.expectedMeter > 0) ? 'completed' : 'active'
+  if (!this.manuallyCompleted) {
+    this.status = (this.producedMeter >= this.expectedMeter && this.expectedMeter > 0) ? 'completed' : 'active'
+  }
   next()
 })
 
@@ -64,6 +67,7 @@ const productionSchema = new Schema({
   meter:     { type: Number, required: true, min: 0 },
   weightKg:  { type: Number, default: null, min: 0 },
   date:      { type: Date, default: Date.now },
+  notes:     { type: String, default: '' },
 }, { timestamps: true })
 
 // ── Machine Setting ───────────────────────────────────────────────────────────

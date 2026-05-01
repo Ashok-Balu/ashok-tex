@@ -1,6 +1,6 @@
 # 🧵 அசோக் டெக்ஸ் — **Ashok Tex**
 
-**Powerloom Business Management System** | Tamil-first | Vue 3 + Node.js + MongoDB
+**Autoloom Business Management System** | Tamil-first | Vue 3 + Node.js + MongoDB
 
 [![GitHub License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![GitHub Release](https://img.shields.io/badge/status-Active-brightgreen.svg)](https://github.com/Ashok-Balu/ashok-tex)

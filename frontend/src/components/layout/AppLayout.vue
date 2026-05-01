@@ -8,7 +8,7 @@
           <span style="font-size:28px">🧵</span>
           <div v-if="!rail">
             <div class="logo-title">{{ t('appName') }}</div>
-            <div class="logo-sub">POWERLOOM</div>
+            <div class="logo-sub">AUTOLOOM</div>
           </div>
         </div>
       </div>

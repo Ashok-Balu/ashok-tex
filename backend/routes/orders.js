@@ -51,6 +51,17 @@ router.delete('/:id', ah(async (req, res) => {
   res.json({ message: 'Deleted' })
 }))
 
+// Manually complete an order (even if expectedMeter not fully produced)
+router.patch('/:id/complete', ah(async (req, res) => {
+  const doc = await Order.findByIdAndUpdate(
+    req.params.id,
+    { status: 'completed', manuallyCompleted: true },
+    { new: true }
+  ).populate('company', 'name defaultDeduction')
+  if (!doc) return res.status(404).json({ message: 'Not found' })
+  res.json(withComputedOrderFields(doc))
+}))
+
 // Helper exported for production & payment routes to call
 async function recalcProduced(orderId) {
   const agg = await Production.aggregate([
@@ -58,13 +69,15 @@ async function recalcProduced(orderId) {
     { $group: { _id: null, total: { $sum: '$meter' } } },
   ])
   const producedMeter = agg[0]?.total || 0
-  const order = await Order.findById(orderId).select('expectedMeter')
+  const order = await Order.findById(orderId).select('expectedMeter manuallyCompleted')
   if (!order) return
 
-  await Order.findByIdAndUpdate(orderId, {
-    producedMeter,
-    status: producedMeter >= (order.expectedMeter || 0) && (order.expectedMeter || 0) > 0 ? 'completed' : 'active',
-  })
+  const updatePayload = { producedMeter }
+  // Don't auto-reset status if user manually completed the order
+  if (!order.manuallyCompleted) {
+    updatePayload.status = producedMeter >= (order.expectedMeter || 0) && (order.expectedMeter || 0) > 0 ? 'completed' : 'active'
+  }
+  await Order.findByIdAndUpdate(orderId, updatePayload)
 }
 
 async function recalcReceived(orderId) {
@@ -94,7 +107,10 @@ function withComputedOrderFields(orderDoc) {
   const payableAmount = totalValue - deductionHoldAmount
   const remainingPayment = Math.max(0, payableAmount - (o.totalReceived || 0))
   const paymentStatus = (o.totalReceived || 0) > 0 && remainingPayment === 0 ? 'completed' : 'pending'
-  const status = (o.producedMeter || 0) >= (o.expectedMeter || 0) && (o.expectedMeter || 0) > 0 ? 'completed' : 'active'
+  // Respect manuallyCompleted flag; otherwise derive from production vs expected
+  const status = o.manuallyCompleted
+    ? 'completed'
+    : ((o.producedMeter || 0) >= (o.expectedMeter || 0) && (o.expectedMeter || 0) > 0 ? 'completed' : 'active')
 
   return {
     ...o,

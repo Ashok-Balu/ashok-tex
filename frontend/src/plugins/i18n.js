@@ -125,7 +125,7 @@ const ta = {
 }
 
 const en = {
-  appName: 'ASHOK TEX', appSub: 'Powerloom Management',
+  appName: 'ASHOK TEX', appSub: 'Autoloom Management',
   login: 'Login', logout: 'Logout',
   username: 'Username', password: 'Password',
   loginBtn: 'Sign In', loginWelcome: 'Welcome Back!',

@@ -327,10 +327,10 @@
             <div v-if="prodEditId" class="mb-2" style="font-size:12px;color:#7B1FA2">{{ t('edit') }} {{ t('production') }}</div>
             <v-form :key="prodFormKey" ref="prodFormRef" class="prod-form" validate-on="input" @submit.prevent="addProductionEntry">
               <v-row dense class="align-start">
-                <v-col cols="12" sm="6" lg="3">
+                <v-col cols="12" sm="6" lg="2">
                   <v-text-field v-model="prodForm.date" type="date" :label="t('date')" density="compact" hide-details="auto" :rules="[v=>!!v||t('required')]" />
                 </v-col>
-                <v-col cols="12" sm="6" lg="3">
+                <v-col cols="12" sm="6" lg="2">
                   <v-text-field v-model="prodForm.dcNumber" :label="t('dcNumber')" density="compact" hide-details="auto" :rules="[v=>!!String(v||'').trim()||t('required')]" />
                 </v-col>
                 <v-col cols="12" sm="6" lg="2">
@@ -338,6 +338,9 @@
                 </v-col>
                 <v-col cols="12" sm="6" lg="2">
                   <v-text-field v-model.number="prodForm.weightKg" label="Weight" type="number" suffix="kg" density="compact" hide-details="auto" />
+                </v-col>
+                <v-col cols="12" sm="6" lg="2">
+                  <v-text-field v-model="prodForm.notes" label="Notes" density="compact" hide-details="auto" />
                 </v-col>
                 <v-col cols="12" sm="6" lg="2" class="d-flex align-center prod-action-col">
                   <v-btn color="primary" variant="flat" rounded="lg" class="w-100 prod-action-btn" :prepend-icon="prodEditId ? undefined : 'mdi-plus-circle-outline'" :loading="prodSaving" type="submit" size="default">{{ prodEditId ? t('save') : t('add') }}</v-btn>
@@ -352,6 +355,91 @@
         </v-card>
       </v-col>
     </v-row>
+    <!-- Complete Order bottom banner -->
+    <v-row v-if="order.status === 'active'" class="mt-2">
+      <v-col cols="12">
+        <div class="complete-order-banner">
+          <div class="complete-order-banner-left">
+            <v-icon size="22" color="#065F46" class="mr-2">mdi-clipboard-check-outline</v-icon>
+            <div>
+              <div class="complete-order-banner-title">Ready to close this order?</div>
+              <div class="complete-order-banner-sub">Mark it as completed once production is finalised and accepted by the company.</div>
+            </div>
+          </div>
+          <button class="complete-order-btn" @click="openCompleteOrderDialog">
+            <v-icon size="18" class="mr-1">mdi-check-circle</v-icon>
+            Complete Order
+          </button>
+        </div>
+      </v-col>
+    </v-row>
+
+    <!-- Complete Order Dialog -->
+    <v-dialog v-model="completeOrderDialog" max-width="500" persistent>
+      <v-card rounded="xl" style="overflow:hidden">
+        <!-- Dialog header -->
+        <div class="complete-dialog-header" :class="producedGapMeter > 0 ? 'warn' : 'ok'">
+          <div class="complete-dialog-icon-wrap">
+            <v-icon size="36" color="white">{{ producedGapMeter > 0 ? 'mdi-alert-circle' : 'mdi-check-circle' }}</v-icon>
+          </div>
+          <div class="complete-dialog-header-text">
+            <div class="complete-dialog-title">Complete Order</div>
+            <div class="complete-dialog-subtitle">{{ order.orderName }}</div>
+          </div>
+        </div>
+
+        <v-card-text class="px-5 pt-5 pb-3">
+          <!-- Short gap warning -->
+          <div v-if="producedGapMeter > 0" class="complete-dialog-warn-box mb-4">
+            <div class="complete-dialog-warn-row">
+              <div class="complete-dialog-warn-stat">
+                <div class="complete-dialog-warn-num">{{ fmtN(order.producedMeter) }} m</div>
+                <div class="complete-dialog-warn-label">Produced</div>
+              </div>
+              <v-icon color="#D97706" size="20">mdi-arrow-right</v-icon>
+              <div class="complete-dialog-warn-stat">
+                <div class="complete-dialog-warn-num" style="color:#DC2626">{{ fmtN(producedGapMeter) }} m</div>
+                <div class="complete-dialog-warn-label">Short</div>
+              </div>
+              <v-icon color="#D97706" size="20">mdi-arrow-right</v-icon>
+              <div class="complete-dialog-warn-stat">
+                <div class="complete-dialog-warn-num">{{ fmtN(order.expectedMeter) }} m</div>
+                <div class="complete-dialog-warn-label">Expected</div>
+              </div>
+            </div>
+            <div class="complete-dialog-warn-msg">
+              <v-icon size="16" color="#92400E" class="mr-1" style="vertical-align:middle">mdi-alert</v-icon>
+              You are closing this order <strong>{{ fmtN(producedGapMeter) }} m short</strong> of the expected production.
+            </div>
+          </div>
+
+          <p style="font-size:14px;color:#1F2937;line-height:1.6">
+            {{ producedGapMeter > 0
+              ? 'The company has agreed to accept the current production. Proceeding will permanently mark this order as Completed.'
+              : 'Production target has been met. Proceeding will permanently mark this order as Completed.' }}
+          </p>
+          <p style="font-size:12px;color:#9CA3AF;margin-top:8px">This action cannot be undone. Further production entries will not revert the status.</p>
+        </v-card-text>
+
+        <v-divider />
+        <v-card-actions class="px-5 py-4">
+          <v-btn variant="outlined" rounded="lg" @click="completeOrderDialog = false" :disabled="completingOrder" style="min-width:100px">Cancel</v-btn>
+          <v-spacer />
+          <v-btn
+            :color="producedGapMeter > 0 ? 'warning' : 'success'"
+            variant="flat"
+            rounded="lg"
+            :loading="completingOrder"
+            @click="confirmCompleteOrder"
+            style="min-width:160px"
+          >
+            <v-icon start size="16">mdi-check-circle</v-icon>
+            Yes, Complete Order
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <v-dialog v-model="imagePreviewDialog" max-width="980">
       <v-card rounded="lg" class="image-preview-card">
         <div class="d-flex justify-end pa-2">
@@ -375,12 +463,14 @@ import { useConfirm } from '@/composables/useConfirm'
 import AgTable from '@/components/common/AgTable.vue'
 import api from '@/plugins/axios'
 const route = useRoute(); const { t } = useI18n()
-const { fmt, fmtN, fmtDate, pct, today } = useUtils()
+const { fmt, fmtN, fmtDate, fmtDateShort, pct, today } = useUtils()
 const { confirm } = useConfirm()
 const orderStore = useOrderStore()
 const order = ref(null); const productions = ref([]); const noolRows = ref([])
 const imagePreviewDialog = ref(false)
 const imagePreviewSrc = ref('')
+const completeOrderDialog = ref(false)
+const completingOrder = ref(false)
 const noolFormRef = ref(); const prodFormRef = ref()
 const noolFormKey = ref(0); const prodFormKey = ref(0)
 const noolSaving = ref(false); const prodSaving = ref(false)
@@ -460,7 +550,7 @@ function deleteCustomColour(val) {
   saveCustom(COLOUR_KEY, customColours.value)
   if (noolForm.value.colour === val) noolForm.value.colour = null
 }
-const prodForm = ref({ date: today(), dcNumber: '', meter: null, weightKg: null })
+const prodForm = ref({ date: today(), dcNumber: '', meter: null, weightKg: null, notes: '' })
 const orderPct = computed(() => pct(order.value?.producedMeter, order.value?.expectedMeter))
 const orderFinance = computed(() => (order.value ? orderStore.financials(order.value) : { remaining: 0 }))
 const paymentStateLabel = computed(() => {
@@ -531,10 +621,11 @@ const financials = computed(() => {
   ]
 })
 const prodCols = [
-  { field:'date', headerName:t('date'), flex:1, valueFormatter: p=>fmtDate(p.value) },
+  { field:'date', headerName:t('date'), flex:1, valueFormatter: p=>fmtDateShort(p.value) },
   { field:'dcNumber', headerName:t('dcNumber'), flex:1 },
   { field:'meter', headerName:t('meter'), flex:1, valueFormatter: p=>fmtN(p.value)+' m' },
-  { field:'weightKg', headerName:'Weight', flex:1, valueFormatter: p => p.value == null ? '-' : fmtN(p.value)+' kg' },
+  { field:'weightKg', headerName:'Weight', flex:0.8, valueFormatter: p => p.value == null ? '-' : fmtN(p.value)+' kg' },
+  { field:'notes', headerName:'Notes', flex:1.2, valueFormatter: p => p.value || '-' },
   { headerName:t('actions'), flex:1.1, sortable:false, filter:false,
     cellRenderer: p => `<div style="display:flex;gap:4px;padding-top:4px">
       <button data-id="${p.data._id}" data-action="edit" style="background:#F3E5F5;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;color:#7B1FA2;font-size:11px;font-weight:600">Edit</button>
@@ -742,7 +833,7 @@ async function saveNoolBatch() {
 
 function clearProductionForm() {
   prodEditId.value = null
-  prodForm.value = { date: today(), dcNumber: '', meter: null, weightKg: null }
+  prodForm.value = { date: today(), dcNumber: '', meter: null, weightKg: null, notes: '' }
   prodFormRef.value?.resetValidation()
   prodFormKey.value += 1
 }
@@ -774,6 +865,7 @@ function startEditProduction(row) {
     dcNumber: row.dcNumber || '',
     meter: Number(row.meter || 0),
     weightKg: row.weightKg == null ? null : Number(row.weightKg),
+    notes: row.notes || '',
   }
 }
 
@@ -861,6 +953,22 @@ async function removeProduction(id) {
   await loadOrderData()
 }
 
+function openCompleteOrderDialog() {
+  completeOrderDialog.value = true
+}
+
+async function confirmCompleteOrder() {
+  completingOrder.value = true
+  try {
+    const res = await api.patch(`/orders/${route.params.id}/complete`)
+    order.value = res.data
+    completeOrderDialog.value = false
+    await orderStore.fetch()
+  } finally {
+    completingOrder.value = false
+  }
+}
+
 onMounted(loadOrderData)
 </script>
 
@@ -868,6 +976,132 @@ onMounted(loadOrderData)
 .order-hero {
   background: linear-gradient(100deg, #f7fbff 0%, #eef6ff 55%, #f5f9ff 100%);
   border: 1px solid #dce8f5;
+}
+
+/* ── Complete Order Banner ────────────────────────────────── */
+.complete-order-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(100deg, #ECFDF5 0%, #D1FAE5 100%);
+  border: 1px solid #6EE7B7;
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+.complete-order-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.complete-order-banner-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #065F46;
+}
+.complete-order-banner-sub {
+  font-size: 12px;
+  color: #047857;
+  margin-top: 2px;
+}
+.complete-order-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #059669;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 8px rgba(5,150,105,0.25);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.complete-order-btn:hover {
+  background: #047857;
+  box-shadow: 0 4px 14px rgba(5,150,105,0.35);
+}
+
+/* ── Complete Order Dialog ────────────────────────────────── */
+.complete-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 24px;
+}
+.complete-dialog-header.warn {
+  background: linear-gradient(100deg, #FFFBEB 0%, #FEF3C7 100%);
+  border-bottom: 2px solid #FCD34D;
+}
+.complete-dialog-header.ok {
+  background: linear-gradient(100deg, #ECFDF5 0%, #D1FAE5 100%);
+  border-bottom: 2px solid #6EE7B7;
+}
+.complete-dialog-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.complete-dialog-header.warn .complete-dialog-icon-wrap {
+  background: #D97706;
+}
+.complete-dialog-header.ok .complete-dialog-icon-wrap {
+  background: #059669;
+}
+.complete-dialog-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #1F2937;
+}
+.complete-dialog-subtitle {
+  font-size: 13px;
+  color: #6B7280;
+  margin-top: 2px;
+}
+.complete-dialog-warn-box {
+  background: #FFFBEB;
+  border: 1px solid #FCD34D;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.complete-dialog-warn-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.complete-dialog-warn-stat {
+  text-align: center;
+}
+.complete-dialog-warn-num {
+  font-size: 18px;
+  font-weight: 800;
+  color: #B45309;
+}
+.complete-dialog-warn-label {
+  font-size: 11px;
+  color: #92400E;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+.complete-dialog-warn-msg {
+  font-size: 12.5px;
+  color: #92400E;
+  border-top: 1px solid #FDE68A;
+  padding-top: 10px;
+  line-height: 1.5;
 }
 
 /* Nool package type toggle */
