@@ -8,7 +8,7 @@
 ## 🚀 Live Demo
 
 - **Web App**: https://ashok-tex.vercel.app
-- **API**: https://ashok-tex-backend.onrender.com
+- **API**: https://ashok-tex-1.onrender.com
 - **Vercel project**: https://vercel.com/ashokbkaa-1314s-projects/ashok-tex
 - **Render service**: https://dashboard.render.com/web/srv-d7pgm4n7f7vs739jr4ig
 - **Repository**: https://github.com/Ashok-Balu/ashok-tex
@@ -132,10 +132,10 @@ npm run build
 
 ### Configuration
 1. Frontend Vercel environment
-   - `VITE_API_URL=https://ashok-tex-backend.onrender.com`
+   - `VITE_API_URL=https://ashok-tex-1.onrender.com`
    - `VITE_APP_NAME=Ashok Tex`
 2. Backend Render environment
-   - `MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/ashok-tex`
+   - `MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/ashok-tex`
    - `JWT_SECRET=your-super-secret-key-here`
    - `JWT_EXPIRES_IN=7d`
    - `CORS_ORIGIN=https://ashok-tex.vercel.app`
@@ -143,8 +143,14 @@ npm run build
    - `CLOUDINARY_NAME=your-cloudinary-name`
    - `CLOUDINARY_KEY=your-cloudinary-key`
    - `CLOUDINARY_SECRET=your-cloudinary-secret`
-   - `RENDER_EXTERNAL_URL=https://ashok-tex-backend.onrender.com` (optional keep-alive)
-3. If you change the MongoDB password or user, update the full `MONGO_URI` string in Render immediately and redeploy.4. Verify the backend after redeploy by visiting `https://ashok-tex-backend.onrender.com/api/health` and confirming it returns `status: ok`.
+   - `RENDER_EXTERNAL_URL=https://ashok-tex-1.onrender.com` (optional keep-alive)
+
+> Make sure these variable names are exact in Render: `MONGODB_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `CORS_ORIGIN`, `CLIENT_URL`, `CLOUDINARY_NAME`, `CLOUDINARY_KEY`, `CLOUDINARY_SECRET`, `RENDER_EXTERNAL_URL`.
+
+3. If you rotate the Atlas database user password, update the full `MONGO_URI` string in Render immediately and redeploy.
+   - Atlas path: Database Access → Edit user → Generate new password → update env vars.
+   - Do not commit the password to source control.
+4. Verify the backend after redeploy by visiting `https://ashok-tex-1.onrender.com/api/health` and confirming it returns `status: ok`.
 📖 See **[DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)** for detailed instructions
 
 ---
@@ -177,7 +183,7 @@ VITE_APP_NAME=Ashok Tex
 
 ### Frontend Vercel Environment
 ```env
-VITE_API_URL=https://ashok-tex-backend.onrender.com
+VITE_API_URL=https://ashok-tex-1.onrender.com
 VITE_APP_NAME=Ashok Tex
 ```
 
@@ -193,7 +199,7 @@ CLIENT_URL=https://ashok-tex.vercel.app
 CLOUDINARY_NAME=your-cloudinary-name
 CLOUDINARY_KEY=your-api-key
 CLOUDINARY_SECRET=your-api-secret
-RENDER_EXTERNAL_URL=https://ashok-tex-backend.onrender.com
+RENDER_EXTERNAL_URL=https://ashok-tex-1.onrender.com
 ```
 
 ---
