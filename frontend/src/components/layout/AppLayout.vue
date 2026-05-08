@@ -8,7 +8,7 @@
           <span style="font-size:28px">🧵</span>
           <div v-if="!rail">
             <div class="logo-title">{{ t('appName') }}</div>
-            <div class="logo-sub">POWERLOOM</div>
+            <div class="logo-sub">AUTOLOOM</div>
           </div>
         </div>
       </div>
@@ -97,7 +97,6 @@ const nav = [
   { to: '/companies',  key: 'companies',  icon: 'mdi-domain' },
   { to: '/orders',     key: 'orders',     icon: 'mdi-package-variant' },
   { to: '/payroll',    key: 'payroll',    icon: 'mdi-cash-multiple' },
-  { to: '/reports',    key: 'reports',    icon: 'mdi-chart-bar' },
   { to: '/company-statement', key: 'companyStatement', icon: 'mdi-file-table-box' },
 ]
 

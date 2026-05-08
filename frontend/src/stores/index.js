@@ -14,10 +14,17 @@ function getErrorMessage(error) {
 // ── Company ───────────────────────────────────────────────────────────────────
 export const useCompanyStore = defineStore('company', () => {
   const items = ref([]); const loading = ref(false)
-  async function fetch() { loading.value = true; try { const r = await api.get('/companies'); items.value = r.data } finally { loading.value = false } }
-  async function create(d) { try { await api.post('/companies', d); await fetch(); notify.success(t('savedSuccess')) } catch (error) { notify.error(getErrorMessage(error)); throw error } }
-  async function update(id, d) { try { const r = await api.put(`/companies/${id}`, d); await fetch(); notify.success(t('savedSuccess')); return r.data } catch (error) { notify.error(getErrorMessage(error)); throw error } }
-  async function remove(id) { try { await api.delete(`/companies/${id}`); await fetch(); notify.success(t('deletedSuccess')) } catch (error) { notify.error(getErrorMessage(error)); throw error } }
+  let lastFetchAt = 0
+  const TTL = 60_000 // 60 s — re-use cached data within 1 minute
+  async function fetch(force = false) {
+    if (!force && items.value.length && Date.now() - lastFetchAt < TTL) return
+    loading.value = true
+    try { const r = await api.get('/companies'); items.value = r.data; lastFetchAt = Date.now() }
+    finally { loading.value = false }
+  }
+  async function create(d) { try { await api.post('/companies', d); await fetch(true); notify.success(t('savedSuccess')) } catch (error) { notify.error(getErrorMessage(error)); throw error } }
+  async function update(id, d) { try { const r = await api.put(`/companies/${id}`, d); await fetch(true); notify.success(t('savedSuccess')); return r.data } catch (error) { notify.error(getErrorMessage(error)); throw error } }
+  async function remove(id) { try { await api.delete(`/companies/${id}`); await fetch(true); notify.success(t('deletedSuccess')) } catch (error) { notify.error(getErrorMessage(error)); throw error } }
   return { items, loading, fetch, create, update, remove }
 })
 
@@ -45,7 +52,14 @@ export const useOrderStore = defineStore('order', () => {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export const useDashboardStore = defineStore('dashboard', () => {
   const stats = ref(null); const loading = ref(false)
-  async function fetch() { loading.value = true; try { const r = await api.get('/dashboard'); stats.value = r.data } finally { loading.value = false } }
+  let lastFetchAt = 0
+  const TTL = 30_000 // 30 s — dashboard data refreshes more frequently
+  async function fetch(force = false) {
+    if (!force && stats.value && Date.now() - lastFetchAt < TTL) return
+    loading.value = true
+    try { const r = await api.get('/dashboard'); stats.value = r.data; lastFetchAt = Date.now() }
+    finally { loading.value = false }
+  }
   return { stats, loading, fetch }
 })
 

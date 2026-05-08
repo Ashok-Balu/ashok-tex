@@ -18,7 +18,8 @@ router.get('/', ah(async (req, res) => {
   res.json(await Payment.find(f)
     .populate('company', 'name')
     .populate('order', 'orderName deductionPct')
-    .sort({ date: -1 }))
+    .sort({ date: -1 })
+    .lean())
 }))
 
 router.post('/', ah(async (req, res) => {

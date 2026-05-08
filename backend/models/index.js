@@ -8,6 +8,13 @@ const userSchema = new Schema({
   role:     { type: String, enum: ['admin', 'user'], default: 'user' },
 }, { timestamps: true })
 
+// ── RefreshToken ──────────────────────────────────────────────────────────────────────────────
+const refreshTokenSchema = new Schema({
+  tokenHash: { type: String, required: true, index: true },
+  user:      { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  expiresAt: { type: Date, required: true },
+}, { timestamps: true })
+
 // ── Company ───────────────────────────────────────────────────────────────────
 const companySchema = new Schema({
   name:             { type: String, required: true, trim: true },
@@ -27,15 +34,22 @@ const orderSchema = new Schema({
   ratePerMeter:  { type: Number, default: 0 },
   deductionPct:  { type: Number, default: 20 },
   totalReceived: { type: Number, default: 0 },
-  status:        { type: String, enum: ['active', 'completed'], default: 'active' },
-  sampleImage:   { type: String, default: '' },
+  status:            { type: String, enum: ['active', 'completed'], default: 'active' },
+  sampleImage:       { type: String, default: '' },
+  manuallyCompleted: { type: Boolean, default: false },
 }, { timestamps: true })
 
-// Auto status
+// Auto status — skip if manually completed by user
 orderSchema.pre('save', function (next) {
-  this.status = (this.producedMeter >= this.expectedMeter && this.expectedMeter > 0) ? 'completed' : 'active'
+  if (!this.manuallyCompleted) {
+    this.status = (this.producedMeter >= this.expectedMeter && this.expectedMeter > 0) ? 'completed' : 'active'
+  }
   next()
 })
+// Indexes for fast lookups
+orderSchema.index({ status: 1 })
+orderSchema.index({ company: 1, status: 1 })
+orderSchema.index({ createdAt: -1 })
 
 // ── Nool Receipt ──────────────────────────────────────────────────────────────
 const noolSchema = new Schema({
@@ -54,6 +68,7 @@ const noolSchema = new Schema({
   date:    { type: Date, default: Date.now },
   notes:   { type: String },
 }, { timestamps: true })
+noolSchema.index({ order: 1, date: -1 })
 
 // ── Production Entry ──────────────────────────────────────────────────────────
 const productionSchema = new Schema({
@@ -64,7 +79,10 @@ const productionSchema = new Schema({
   meter:     { type: Number, required: true, min: 0 },
   weightKg:  { type: Number, default: null, min: 0 },
   date:      { type: Date, default: Date.now },
+  notes:     { type: String, default: '' },
 }, { timestamps: true })
+productionSchema.index({ order: 1, date: -1 })
+productionSchema.index({ date: -1 })
 
 // ── Machine Setting ───────────────────────────────────────────────────────────
 const machineSettingSchema = new Schema({
@@ -83,6 +101,7 @@ const expenseSchema = new Schema({
   date:   { type: Date, default: Date.now },
   notes:  { type: String },
 }, { timestamps: true })
+expenseSchema.index({ date: -1 })
 
 // ── Payment ───────────────────────────────────────────────────────────────────
 const paymentSchema = new Schema({
@@ -96,6 +115,9 @@ const paymentSchema = new Schema({
   date:     { type: Date, default: Date.now },
   notes:    { type: String },
 }, { timestamps: true })
+paymentSchema.index({ company: 1, date: -1 })
+paymentSchema.index({ date: -1 })
+paymentSchema.index({ transactionType: 1, date: -1 })
 
 // ── Employee (for Payroll) ────────────────────────────────────────────────────
 const employeeSchema = new Schema({
@@ -107,6 +129,7 @@ const employeeSchema = new Schema({
   status:                { type: String, enum: ['active', 'inactive'], default: 'active' },
   createdAt:             { type: Date, default: Date.now },
 }, { timestamps: true })
+employeeSchema.index({ status: 1 })
 
 // ── Payroll ───────────────────────────────────────────────────────────────────
 const payrollSchema = new Schema({
@@ -152,6 +175,7 @@ const paymentHistorySchema = new Schema({
 
 module.exports = {
   User:              mongoose.model('User',              userSchema),
+  RefreshToken:      mongoose.model('RefreshToken',      refreshTokenSchema),
   Company:           mongoose.model('Company',           companySchema),
   Order:             mongoose.model('Order',             orderSchema),
   Nool:              mongoose.model('Nool',              noolSchema),

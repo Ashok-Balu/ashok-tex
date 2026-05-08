@@ -39,7 +39,7 @@ router.get('/', ah(async (req, res) => {
       f.date.$lte = to
     }
   }
-  res.json(await Production.find(f).populate('order', 'orderName').sort({ date: -1, machineNo: 1 }))
+  res.json(await Production.find(f).populate('order', 'orderName').sort({ date: -1, machineNo: 1 }).lean())
 }))
 
 router.post('/', ah(async (req, res) => {

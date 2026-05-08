@@ -11,7 +11,7 @@ router.get('/', ah(async (req, res) => {
   const f = {}
   if (req.query.status)    f.status  = req.query.status
   if (req.query.companyId) f.company = req.query.companyId
-  const rows = await Order.find(f).populate('company', 'name defaultDeduction').sort({ createdAt: -1 })
+  const rows = await Order.find(f).populate('company', 'name defaultDeduction').sort({ createdAt: -1 }).lean()
   res.json(rows.map(withComputedOrderFields))
 }))
 
@@ -29,14 +29,18 @@ router.get('/:id/nool-stats', ah(async (req, res) => {
 }))
 
 router.post('/', ah(async (req, res) => {
-  const payload = await normalizeOrderPayload(req.body)
+  let payload
+  try { payload = await normalizeOrderPayload(req.body) }
+  catch (e) { return res.status(400).json({ message: e.message }) }
   const doc = await Order.create(payload)
   await doc.populate('company', 'name defaultDeduction')
   res.status(201).json(withComputedOrderFields(doc))
 }))
 
 router.put('/:id', ah(async (req, res) => {
-  const payload = await normalizeOrderPayload(req.body)
+  let payload
+  try { payload = await normalizeOrderPayload(req.body) }
+  catch (e) { return res.status(400).json({ message: e.message }) }
   const doc = await Order.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true })
     .populate('company', 'name defaultDeduction')
   if (!doc) return res.status(404).json({ message: 'Not found' })
@@ -51,6 +55,17 @@ router.delete('/:id', ah(async (req, res) => {
   res.json({ message: 'Deleted' })
 }))
 
+// Manually complete an order (even if expectedMeter not fully produced)
+router.patch('/:id/complete', ah(async (req, res) => {
+  const doc = await Order.findByIdAndUpdate(
+    req.params.id,
+    { status: 'completed', manuallyCompleted: true },
+    { new: true }
+  ).populate('company', 'name defaultDeduction')
+  if (!doc) return res.status(404).json({ message: 'Not found' })
+  res.json(withComputedOrderFields(doc))
+}))
+
 // Helper exported for production & payment routes to call
 async function recalcProduced(orderId) {
   const agg = await Production.aggregate([
@@ -58,13 +73,15 @@ async function recalcProduced(orderId) {
     { $group: { _id: null, total: { $sum: '$meter' } } },
   ])
   const producedMeter = agg[0]?.total || 0
-  const order = await Order.findById(orderId).select('expectedMeter')
+  const order = await Order.findById(orderId).select('expectedMeter manuallyCompleted')
   if (!order) return
 
-  await Order.findByIdAndUpdate(orderId, {
-    producedMeter,
-    status: producedMeter >= (order.expectedMeter || 0) && (order.expectedMeter || 0) > 0 ? 'completed' : 'active',
-  })
+  const updatePayload = { producedMeter }
+  // Don't auto-reset status if user manually completed the order
+  if (!order.manuallyCompleted) {
+    updatePayload.status = producedMeter >= (order.expectedMeter || 0) && (order.expectedMeter || 0) > 0 ? 'completed' : 'active'
+  }
+  await Order.findByIdAndUpdate(orderId, updatePayload)
 }
 
 async function recalcReceived(orderId) {
@@ -81,6 +98,7 @@ async function normalizeOrderPayload(body = {}) {
     if (!payload.sampleImage) {
       delete payload.sampleImage
     } else {
+      // Throws with a descriptive message if type/size invalid — caught by error handler
       payload.sampleImage = await uploadOrderSampleImage(payload.sampleImage)
     }
   }
@@ -94,7 +112,10 @@ function withComputedOrderFields(orderDoc) {
   const payableAmount = totalValue - deductionHoldAmount
   const remainingPayment = Math.max(0, payableAmount - (o.totalReceived || 0))
   const paymentStatus = (o.totalReceived || 0) > 0 && remainingPayment === 0 ? 'completed' : 'pending'
-  const status = (o.producedMeter || 0) >= (o.expectedMeter || 0) && (o.expectedMeter || 0) > 0 ? 'completed' : 'active'
+  // Respect manuallyCompleted flag; otherwise derive from production vs expected
+  const status = o.manuallyCompleted
+    ? 'completed'
+    : ((o.producedMeter || 0) >= (o.expectedMeter || 0) && (o.expectedMeter || 0) > 0 ? 'completed' : 'active')
 
   return {
     ...o,

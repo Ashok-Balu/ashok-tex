@@ -170,7 +170,7 @@ const orderStore   = useOrderStore()
 const companyStore = useCompanyStore()
 
 const search = ref(''); const dialog = ref(false); const saving = ref(false)
-const editId = ref(null); const statusFilter = ref('active'); const formRef = ref()
+const editId = ref(null); const statusFilter = ref(''); const formRef = ref()
 const expandedRegisterGroups = ref([])
 const form = ref({ orderName: '', company: null, expectedMeter: 0, ratePerMeter: 0, reedPick: '', size: '', deductionPct: 20, startDate: '', endDate: '', sampleImage: '' })
 
@@ -181,6 +181,17 @@ function objectIdToTs(id) {
   return /^[0-9a-fA-F]{8}$/.test(hex) ? parseInt(hex, 16) * 1000 : 0
 }
 function orderAddedTs(order) {
+  // Within-company sort: latest startDate first
+  const startTs = new Date(order?.startDate || 0).getTime()
+  if (Number.isFinite(startTs) && startTs > 0) return startTs
+  const createdAtTs = new Date(order?.createdAt || 0).getTime()
+  if (Number.isFinite(createdAtTs) && createdAtTs > 0) return createdAtTs
+  return objectIdToTs(order?._id)
+}
+function orderChangedTs(order) {
+  // Between-company sort: most recently changed order first
+  const updatedTs = new Date(order?.updatedAt || 0).getTime()
+  if (Number.isFinite(updatedTs) && updatedTs > 0) return updatedTs
   const createdAtTs = new Date(order?.createdAt || 0).getTime()
   if (Number.isFinite(createdAtTs) && createdAtTs > 0) return createdAtTs
   return objectIdToTs(order?._id)
@@ -215,7 +226,12 @@ const companyGroups = computed(() => {
       ...group,
       orders: [...group.orders].sort((a, b) => orderAddedTs(b) - orderAddedTs(a)),
     }))
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort((a, b) => {
+      // Company with the most recently changed order comes first
+      const latestA = Math.max(...a.orders.map(o => orderChangedTs(o)), 0)
+      const latestB = Math.max(...b.orders.map(o => orderChangedTs(o)), 0)
+      return latestB - latestA
+    })
 })
 const registerGroups = computed(() => {
   const term = String(search.value || '').trim().toLowerCase()

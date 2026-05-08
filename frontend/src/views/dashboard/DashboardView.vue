@@ -4,23 +4,35 @@
       <v-btn variant="text" color="primary" prepend-icon="mdi-refresh" @click="load">Refresh</v-btn>
     </PageHeader>
 
-    <v-card rounded="xl" class="at-card insight-hero mb-4">
-      <v-row>
-        <v-col v-for="insight in insights" :key="insight.label" cols="12" md="4">
-          <div class="insight-item" :class="insight.tone">
-            <div class="insight-label">{{ insight.label }}</div>
-            <div class="insight-value">{{ insight.value }}</div>
-            <div class="insight-sub">{{ insight.sub }}</div>
+    <!-- ── Hero Metrics Banner ── -->
+    <div class="dash-hero mb-5">
+      <!-- Row 1: 3 big KPI cards -->
+      <div class="dash-insights">
+        <div v-for="insight in insights" :key="insight.label" class="dash-insight-card" :class="insight.tone">
+          <div class="dh-icon-wrap" :class="insight.iconTone">
+            <v-icon size="24" color="white">{{ insight.icon }}</v-icon>
           </div>
-        </v-col>
-      </v-row>
-    </v-card>
-
-    <v-row class="mb-4">
-      <v-col v-for="s in stats" :key="s.label" cols="12" sm="6" md="4" lg="3">
-        <StatCard v-bind="s" />
-      </v-col>
-    </v-row>
+          <div class="dh-body">
+            <div class="dh-label">{{ insight.label }}</div>
+            <div class="dh-value">{{ insight.value }}</div>
+            <div class="dh-sub">{{ insight.sub }}</div>
+          </div>
+          <div class="dh-accent" :class="insight.accentClass"></div>
+        </div>
+      </div>
+      <!-- Row 2: stat chips -->
+      <div class="dash-chips">
+        <div v-for="s in stats" :key="s.label" class="dash-chip">
+          <div class="dc-icon-box" :style="{ background: s.chipBg }">
+            <v-icon size="16" color="white">{{ s.icon }}</v-icon>
+          </div>
+          <div>
+            <div class="dc-label">{{ s.label }}</div>
+            <div class="dc-value" :style="{ color: s.chipColor }">{{ s.value }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <v-card rounded="xl" class="at-card mb-4 company-wrap" style="overflow:hidden">
       <div class="company-head">
@@ -39,18 +51,6 @@
             <v-btn size="x-small" variant="tonal" color="success" prepend-icon="mdi-plus" class="toggle-all-btn" @click="router.push('/companies?add=1')">Add Company</v-btn>
             <v-btn size="x-small" variant="tonal" color="primary" class="toggle-all-btn" @click="expandAllCompanies">Expand All</v-btn>
             <v-btn size="x-small" variant="tonal" color="primary" class="toggle-all-btn" @click="collapseAllCompanies">Collapse All</v-btn>
-          </div>
-        </div>
-        <div class="dashboard-range-bar">
-          <div class="dashboard-range-copy">
-            <div class="dashboard-range-title">Production Period</div>
-            <div class="dashboard-range-sub">Choose a period to see produced quantity and value for only that range.</div>
-          </div>
-          <div class="dashboard-range-controls">
-            <v-text-field v-model="dashboardRange.from" label="From" type="date" density="compact" hide-details="auto" class="dashboard-range-field" variant="outlined" @update:model-value="loadPeriodProduction" />
-            <v-text-field v-model="dashboardRange.to" label="To" type="date" density="compact" hide-details="auto" class="dashboard-range-field" variant="outlined" @update:model-value="loadPeriodProduction" />
-            <v-btn size="small" color="warning" variant="tonal" rounded="lg" class="dashboard-range-reset" @click="resetDashboardRange">Reset</v-btn>
-            <v-btn size="small" color="primary" variant="flat" rounded="lg" class="dashboard-range-apply" :loading="dashboardRangeLoading" @click="loadPeriodProduction">Apply</v-btn>
           </div>
         </div>
       </div>
@@ -167,18 +167,16 @@
       <div v-else class="text-center pa-6" style="color:#5A6A85">{{ t('noData') }}</div>
     </v-card>
 
-    <v-row>
-      <v-col cols="12" lg="8">
-        <v-card rounded="lg" class="at-card" style="overflow:hidden">
-          <div class="d-flex align-center justify-space-between px-4 py-3" style="border-bottom:1px solid #E0E7EF">
-            <span class="font-weight-bold" style="font-size:14px">{{ t('recentOrders') }}</span>
-            <v-btn variant="text" color="primary" size="small" to="/orders" append-icon="mdi-arrow-right">{{ t('orders') }}</v-btn>
-          </div>
-          <AgTable :rowData="recentOrders" :columnDefs="orderCols" height="320px" :pagination="false" />
-        </v-card>
-      </v-col>
-
-    </v-row>
+    <v-card rounded="xl" class="at-card mb-4" style="overflow:hidden">
+      <div class="d-flex align-center justify-space-between px-4 py-3" style="border-bottom:1px solid #E0E7EF">
+        <div>
+          <span class="font-weight-bold" style="font-size:15px">{{ t('recentOrders') }}</span>
+          <span class="text-caption text-medium-emphasis ml-2">Last {{ recentOrders.length }} orders</span>
+        </div>
+        <v-btn variant="tonal" color="primary" size="small" to="/orders" append-icon="mdi-arrow-right">View All Orders</v-btn>
+      </div>
+      <AgTable :rowData="recentOrders" :columnDefs="orderCols" height="380px" :pagination="false" />
+    </v-card>
 
     <v-dialog v-model="companyPaymentsDialog" max-width="1100">
       <v-card rounded="xl" class="company-payment-dialog">
@@ -297,16 +295,14 @@ const companyPaymentSummary = ref({
   totalDeductionNeedToGet: 0,
   totalPayableAmount: 0,
 })
-const companyPaymentForm = ref({ transactionType: 'payment', date: today(), amount: null, mode: 'cash', notes: '' })
+const companyPaymentForm = ref({ transactionType: 'payment', date: today(), amount: null, mode: 'bank', notes: '' })
 const editingPaymentId = ref(null)
 const paymentAmountInWords = computed(() => numToWords(companyPaymentForm.value.amount))
 const transactionTypeItems = [
   { title: 'Payment', value: 'payment' },
   { title: 'Deduction', value: 'deduction' },
 ]
-const dashboardRange = ref({ from: monthStart(), to: today() })
-const dashboardRangeLoading = ref(false)
-const periodProductionRows = ref([])
+
 const expandedCompanyIds = ref([])
 const expandedInitialized = ref(false)
 
@@ -315,119 +311,62 @@ const insights = computed(() => [
   {
     label: 'Expected vs Produced',
     value: fmtN(dashboardStats.value.companyOrderSummary?.reduce((s, c) => s + Number(c.producedMeter || 0), 0) || 0) + ' m',
-    sub: 'out of ' + fmtN(dashboardStats.value.companyOrderSummary?.reduce((s, c) => s + Number(c.expectedMeter || 0), 0) || 0) + ' m',
-    tone: 'tone-info',
+    sub: 'out of ' + fmtN(dashboardStats.value.companyOrderSummary?.reduce((s, c) => s + Number(c.expectedMeter || 0), 0) || 0) + ' m target',
+    tone: 'tone-blue', iconTone: 'icon-blue', icon: 'mdi-factory', accentClass: 'accent-blue',
   },
   {
     label: 'Pending Collection',
     value: fmt(dashboardStats.value.pendingAmount || 0),
     sub: (dashboardStats.value.pendingPaymentCount || 0) + ' companies require follow up',
-    tone: 'tone-warn',
+    tone: 'tone-orange', iconTone: 'icon-orange', icon: 'mdi-clock-alert-outline', accentClass: 'accent-orange',
   },
   {
-    label: 'Monthly Outflow',
-    value: fmt(dashboardStats.value.monthExpense || 0),
-    sub: 'expense in current cycle',
-    tone: 'tone-good',
+    label: 'Monthly Receipt',
+    value: fmt(dashboardStats.value.monthlyReceipt || 0),
+    sub: 'received this month',
+    tone: 'tone-green', iconTone: 'icon-green', icon: 'mdi-trending-up', accentClass: 'accent-green',
   },
 ])
 
 const stats = computed(() => [
-  {
-    icon: 'mdi-factory',
-    iconColor: 'white',
-    iconBg: '#1565C0',
-    label: t('todayProduction'),
-    value: fmtN(dashboardStats.value.todayProduction || 0) + ' m',
-    sub: (dashboardStats.value.activeMachines || 16) + ' ' + t('machines'),
-  },
-  {
-    icon: 'mdi-package-variant',
-    iconColor: 'white',
-    iconBg: '#00897B',
-    label: t('activeOrders'),
-    value: dashboardStats.value.activeOrders || 0,
-    sub: (dashboardStats.value.completedOrders || 0) + ' ' + t('completedOrders'),
-  },
-  {
-    icon: 'mdi-wallet-outline',
-    iconColor: 'white',
-    iconBg: '#E65100',
-    label: 'Company Pending',
-    value: fmt(dashboardStats.value.pendingAmount || 0),
-    sub: `${dashboardStats.value.pendingPaymentCount || 0} companies`,
-  },
-  {
-    icon: 'mdi-cash-check',
-    iconColor: 'white',
-    iconBg: '#2E7D32',
-    label: 'Company Paid',
-    value: dashboardStats.value.completedPaymentCount || 0,
-    sub: 'fully settled',
-  },
-  {
-    icon: 'mdi-hand-coin',
-    iconColor: 'white',
-    iconBg: '#6D4C41',
-    label: 'Deduction to Get',
-    value: fmt(dashboardStats.value.deductionHoldAmount || 0),
-    sub: t('company'),
-  },
-  {
-    icon: 'mdi-cash-minus',
-    iconColor: 'white',
-    iconBg: '#C62828',
-    label: t('totalExpense'),
-    value: fmt(dashboardStats.value.monthExpense || 0),
-    sub: 'this month',
-  },
-  {
-    icon: 'mdi-trending-up',
-    iconColor: 'white',
-    iconBg: '#2E7D32',
-    label: t('monthlyPayment'),
-    value: fmt(dashboardStats.value.monthlyReceipt || 0),
-    sub: 'received',
-  },
+  { icon: 'mdi-factory',           label: t('todayProduction'),  value: fmtN(dashboardStats.value.todayProduction || 0) + ' m',  chipColor: '#1565C0', chipBg: '#1565C0' },
+  { icon: 'mdi-package-variant',   label: t('activeOrders'),     value: dashboardStats.value.activeOrders || 0,                  chipColor: '#00897B', chipBg: '#00897B' },
+  { icon: 'mdi-check-circle',      label: 'Completed Orders',    value: dashboardStats.value.completedOrders || 0,               chipColor: '#2E7D32', chipBg: '#2E7D32' },
+  { icon: 'mdi-cash-check',        label: 'Companies Settled',   value: dashboardStats.value.completedPaymentCount || 0,         chipColor: '#2E7D32', chipBg: '#2E7D32' },
+  { icon: 'mdi-hand-coin',         label: 'Deduction to Get',    value: fmt(dashboardStats.value.deductionHoldAmount || 0),      chipColor: '#6D4C41', chipBg: '#6D4C41' },
+  { icon: 'mdi-cash-minus',        label: t('totalExpense'),     value: fmt(dashboardStats.value.monthExpense || 0),             chipColor: '#C62828', chipBg: '#C62828' },
+  { icon: 'mdi-account-multiple',  label: 'Total Companies',     value: (dashboardStats.value.companyOrderSummary?.length || 0), chipColor: '#5C6BC0', chipBg: '#5C6BC0' },
 ])
 
 function orderSortTs(order) {
-  return new Date(order?.createdAt || order?.date || order?.startDate || 0).getTime() || 0
+  return new Date(order?.startDate || order?.createdAt || 0).getTime() || 0
 }
 
 const recentOrders = computed(() => [...(orderStore.items || [])]
   .sort((a, b) => orderSortTs(b) - orderSortTs(a))
-  .slice(0, 8))
+  .slice(0, 20))
 
 const companyGroups = computed(() => {
   const summaryRows = dashboardStats.value.companyOrderSummary || []
-  const producedMap = new Map()
-  for (const row of periodProductionRows.value) {
-    const orderId = row?.order?._id || row?.order
-    if (!orderId) continue
-    producedMap.set(String(orderId), (producedMap.get(String(orderId)) || 0) + Number(row.meter || 0))
-  }
   const orderMap = new Map()
 
   for (const order of orderStore.items) {
     const companyId = order?.company?._id || 'unknown'
-    const periodProducedMeter = Number(producedMap.get(String(order?._id)) || 0)
     if (!orderMap.has(companyId)) orderMap.set(companyId, [])
-    const periodTotalValue = periodProducedMeter * Number(order.ratePerMeter || 0)
-    const periodDeductionAmt = periodTotalValue * (Number(order.deductionPct || 0) / 100)
-    const periodPayableAmt = periodTotalValue - periodDeductionAmt
+    const totalValue = Number(order.producedMeter || 0) * Number(order.ratePerMeter || 0)
+    const deductionAmt = totalValue * (Number(order.deductionPct || 0) / 100)
     orderMap.get(companyId).push({
       ...order,
-      periodProducedMeter,
-      periodTotalValue,
-      periodDeductionAmt,
-      periodPayableAmt,
+      periodProducedMeter: Number(order.producedMeter || 0),
+      periodTotalValue:    totalValue,
+      periodDeductionAmt:  deductionAmt,
+      periodPayableAmt:    totalValue - deductionAmt,
     })
   }
 
   return summaryRows.map(row => ({
     ...row,
-    periodProducedMeter: (orderMap.get(row.companyId) || []).reduce((sum, order) => sum + Number(order.periodProducedMeter || 0), 0),
+    periodProducedMeter: (orderMap.get(row.companyId) || []).reduce((sum, o) => sum + Number(o.producedMeter || 0), 0),
     orders: [...(orderMap.get(row.companyId) || [])].sort((a, b) => orderSortTs(b) - orderSortTs(a)),
   })).sort((a, b) => new Date(b.lastActivityAt || 0).getTime() - new Date(a.lastActivityAt || 0).getTime())
 })
@@ -485,7 +424,7 @@ function settleClass(company) {
 
 function orderExecutionState(row) {
   if (row?.status === 'completed') return { label: 'Completed', tone: 'good' }
-  if (Number(row?.periodProducedMeter || 0) <= 0) return { label: 'Yet to Start', tone: 'neutral' }
+  if (Number(row?.producedMeter || 0) <= 0) return { label: 'Yet to Start', tone: 'neutral' }
   return { label: 'In Process', tone: 'info' }
 }
 
@@ -586,7 +525,7 @@ async function addCompanyPayment() {
       notes: companyPaymentForm.value.notes || '',
     })
 
-    companyPaymentForm.value = { transactionType: 'payment', date: today(), amount: null, mode: 'cash', notes: '' }
+    companyPaymentForm.value = { transactionType: 'payment', date: today(), amount: null, mode: 'bank', notes: '' }
     await Promise.all([loadCompanyPayments(), dashboardStore.fetch()])
     notify.success(t('savedSuccess'))
   } catch (error) {
@@ -659,27 +598,7 @@ function startEditCompanyPayment(row) {
 
 function resetCompanyPaymentForm() {
   editingPaymentId.value = null
-  companyPaymentForm.value = { transactionType: 'payment', date: today(), amount: null, mode: 'cash', notes: '' }
-}
-
-async function loadPeriodProduction() {
-  dashboardRangeLoading.value = true
-  try {
-    const { data } = await api.get('/production', {
-      params: {
-        from: dashboardRange.value.from,
-        to: dashboardRange.value.to,
-      },
-    })
-    periodProductionRows.value = data || []
-  } finally {
-    dashboardRangeLoading.value = false
-  }
-}
-
-function resetDashboardRange() {
-  dashboardRange.value = { from: monthStart(), to: today() }
-  loadPeriodProduction()
+  companyPaymentForm.value = { transactionType: 'payment', date: today(), amount: null, mode: 'bank', notes: '' }
 }
 
 async function openCompanyPayments(company) {
@@ -704,13 +623,17 @@ function goToOrderDetail(row) {
 }
 
 const orderCols = [
-  { field: 'orderName', headerName: 'Order', flex: 1.5 },
-  { field: 'company.name', headerName: 'Company', flex: 1.2 },
-  { field: 'producedMeter', headerName: 'Produced', flex: 1, valueFormatter: p => fmtN(p.value) + ' m' },
+  { field: 'orderName',      headerName: 'Order',            flex: 1.5, minWidth: 140 },
+  { field: 'company.name',   headerName: 'Company',          flex: 1.2, minWidth: 130 },
+  { field: 'expectedMeter',  headerName: 'Expected (m)',     flex: 1,   minWidth: 110, valueFormatter: p => fmtN(p.value || 0) + ' m' },
+  { field: 'producedMeter',  headerName: 'Produced (m)',     flex: 1,   minWidth: 110, valueFormatter: p => fmtN(p.value || 0) + ' m' },
+  { field: 'ratePerMeter',   headerName: 'Rate/m',           flex: 0.8, minWidth: 90,  valueFormatter: p => fmt(p.value || 0) },
+  { field: 'deductionPct',   headerName: 'Deduction %',      flex: 0.8, minWidth: 100, valueFormatter: p => Number(p.value || 0).toFixed(1) + '%' },
+  { field: 'startDate',      headerName: 'Start Date',       flex: 1,   minWidth: 110, valueFormatter: p => p.value ? fmtDate(p.value) : '-' },
   {
     field: 'status',
     headerName: 'Status',
-    flex: 1,
+    flex: 0.9, minWidth: 90,
     cellRenderer: p => `<span class="${p.value === 'completed' ? 'chip-done' : 'chip-active'}" style="padding:2px 10px;border-radius:20px;font-size:11px">${p.value === 'completed' ? 'Done' : 'Active'}</span>`,
   },
 ].map(col => ({
@@ -722,7 +645,6 @@ async function load() {
   await Promise.all([
     orderStore.fetch(),
     dashboardStore.fetch().catch(() => {}),
-    loadPeriodProduction(),
   ])
 }
 
@@ -730,40 +652,95 @@ onMounted(load)
 </script>
 
 <style scoped>
-.insight-hero {
-  padding: 10px 14px;
-  background:
-    radial-gradient(700px 180px at -10% -30%, rgba(21, 101, 192, 0.16), transparent 60%),
-    radial-gradient(680px 180px at 110% -30%, rgba(46, 125, 50, 0.12), transparent 60%),
-    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+/* ── Hero Banner ─────────────────────────────────────────────────── */
+.dash-hero {
+  background: #f0f4ff;
+  border-radius: 20px;
+  padding: 20px;
+  border: 1px solid #dde6f5;
+  box-shadow: 0 4px 24px rgba(21, 101, 192, 0.07);
 }
 
-.insight-item {
-  border: 1px solid #dce7f2;
+.dash-insights {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dash-insight-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #e0eaf5;
+  box-shadow: 0 2px 12px rgba(21,101,192,0.07);
+  overflow: hidden;
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+.dash-insight-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(21,101,192,0.13); }
+
+/* colored left border accent */
+.dh-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 5px; border-radius: 16px 0 0 16px; }
+.accent-blue   { background: linear-gradient(180deg,#1976d2,#42a5f5); }
+.accent-orange { background: linear-gradient(180deg,#e65100,#ffa726); }
+.accent-green  { background: linear-gradient(180deg,#2e7d32,#66bb6a); }
+
+.dh-icon-wrap {
+  width: 48px; height: 48px;
   border-radius: 14px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.92);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-left: 6px;
 }
+.icon-blue   { background: linear-gradient(135deg,#1565c0,#42a5f5); box-shadow: 0 4px 12px rgba(21,101,192,0.35); }
+.icon-orange { background: linear-gradient(135deg,#e65100,#ffa726); box-shadow: 0 4px 12px rgba(230,81,0,0.35); }
+.icon-green  { background: linear-gradient(135deg,#2e7d32,#66bb6a); box-shadow: 0 4px 12px rgba(46,125,50,0.35); }
 
-.insight-label {
-  font-size: 11px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: #5a6a85;
-  font-weight: 700;
-}
+.dh-body { flex: 1; min-width: 0; }
+.dh-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #7a90ab; }
+.dh-value { font-size: 28px; font-weight: 800; margin-top: 4px; line-height: 1.1; color: #162f55; }
+.dh-sub   { font-size: 12px; color: #8fa3bc; margin-top: 4px; }
 
-.insight-value {
-  margin-top: 2px;
-  font-size: 24px;
-  font-weight: 800;
-}
+.tone-blue   .dh-value { color: #1565c0; }
+.tone-orange .dh-value { color: #e65100; }
+.tone-green  .dh-value { color: #2e7d32; }
 
-.insight-sub {
-  margin-top: 2px;
-  font-size: 12px;
-  color: #5a6a85;
+/* stat chips row */
+.dash-chips {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
 }
+@media (max-width: 1200px) { .dash-chips { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 700px)  { .dash-chips { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px)  { .dash-insights { grid-template-columns: 1fr; } }
+
+.dash-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e0eaf5;
+  box-shadow: 0 1px 6px rgba(21,101,192,0.06);
+  transition: box-shadow 0.15s;
+}
+.dash-chip:hover { box-shadow: 0 4px 14px rgba(21,101,192,0.13); }
+
+.dc-icon-box {
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+.dc-label { font-size: 10px; color: #8fa3bc; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+.dc-value { font-size: 14px; font-weight: 800; line-height: 1.2; color: #162f55; }
 
 .insight-item.tone-info .insight-value { color: #1565c0; }
 .insight-item.tone-warn .insight-value { color: #e65100; }

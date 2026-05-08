@@ -13,7 +13,6 @@ const routes = [
       { path: 'companies',  name: 'companies',     component: () => import('@/views/companies/CompaniesView.vue') },
       { path: 'orders',     name: 'orders',        component: () => import('@/views/orders/OrdersView.vue') },
       { path: 'orders/:id', name: 'order-detail',  component: () => import('@/views/orders/OrderDetailView.vue') },
-      { path: 'reports',    name: 'reports',       component: () => import('@/views/reports/ReportsView.vue') },
       { path: 'company-statement', name: 'company-statement', component: () => import('@/views/reports/CompanyStatementView.vue') },
       { path: 'payroll',    name: 'payroll',       component: () => import('@/views/salary/PayrollView.vue') },
     ],

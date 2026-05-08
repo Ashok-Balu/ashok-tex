@@ -27,8 +27,17 @@ router.get('/', ah(async (req, res) => {
     Production.aggregate([{ $match: { date: { $gte: todayStart, $lte: todayEnd } } }, { $group: { _id: null, t: { $sum: '$meter' } } }]),
     Expense.aggregate([{ $match: { date: { $gte: monthStart } } },                     { $group: { _id: null, t: { $sum: '$amount' } } }]),
     Payment.aggregate([{ $match: { date: { $gte: monthStart }, transactionType: { $ne: 'deduction' } } }, { $group: { _id: null, t: { $sum: '$amount' } } }]),
-    MachineSetting.findOne(),
-    Order.find({}).populate('company', 'name'),
+    MachineSetting.findOne().lean(),
+    Order.aggregate([
+      {
+        $lookup: {
+          from: 'companies', localField: 'company', foreignField: '_id',
+          as: 'co', pipeline: [{ $project: { name: 1 } }]
+        }
+      },
+      { $addFields: { company: { $arrayElemAt: ['$co', 0] } } },
+      { $project: { orderName:1, status:1, producedMeter:1, expectedMeter:1, ratePerMeter:1, deductionPct:1, updatedAt:1, createdAt:1, 'company._id':1, 'company.name':1 } }
+    ]),
     Payment.aggregate([
       {
         $group: {

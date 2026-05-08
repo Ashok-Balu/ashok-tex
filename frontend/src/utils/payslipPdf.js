@@ -55,7 +55,7 @@ export function generatePayslipPdf(emp, month, year, companyName = 'ASHOK TEX') 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(80, 80, 80)
-  doc.text('POWERLOOM', ml, y)
+  doc.text('AUTOLOOM', ml, y)
   doc.text(`${MONTH_NAMES[month] || month} ${year}`, mr, y, { align: 'right' })
 
   y += 6
