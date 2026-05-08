@@ -30,9 +30,14 @@ const apiLimiter = rateLimit({
 })
 
 // CORS — only allow known frontend origins, no wildcard
+const envOrigins = [
+  ...(process.env.CORS_ORIGIN || '').split(','),
+  ...(process.env.CLIENT_URL  || '').split(','),
+]
 const allowedOrigins = [
   'http://localhost:5173',
   'https://ashok-tex-g71m.vercel.app',
+  ...envOrigins.map(o => o.trim()).filter(Boolean),
 ]
 app.use(cors({
   origin: (origin, cb) => {

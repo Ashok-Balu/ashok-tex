@@ -8,7 +8,9 @@
 ## 🚀 Live Demo
 
 - **Web App**: https://ashok-tex.vercel.app
-- **API**: https://ashok-tex.up.railway.app
+- **API**: https://ashok-tex-backend.onrender.com
+- **Vercel project**: https://vercel.com/ashokbkaa-1314s-projects/ashok-tex
+- **Render service**: https://dashboard.render.com/web/srv-d7pgm4n7f7vs739jr4ig
 - **Repository**: https://github.com/Ashok-Balu/ashok-tex
 
 ---
@@ -113,7 +115,7 @@ Preference is saved to `localStorage`.
 
 ## ☁️ Deploy to Production
 
-See **[QUICK_START.md](QUICK_START.md)** for step-by-step deployment guide.
+See the deployment checklist below and **[DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)** for step-by-step instructions.
 
 ### Quick Deploy
 ```bash
@@ -121,20 +123,28 @@ See **[QUICK_START.md](QUICK_START.md)** for step-by-step deployment guide.
 npm run build
 # Push to GitHub, Vercel auto-deploys
 
-# Backend → Railway  
-# Push to GitHub, Railway auto-deploys
+# Backend → Render  
+# Push to GitHub, Render auto-deploys via render.yaml
 
 # Database → MongoDB Atlas
 # Create free cluster and get connection string
 ```
 
 ### Configuration
-1. **Frontend** (`VITE_API_URL`): Set to your Railway backend URL
-2. **Backend** (`MONGODB_URI`): Set to your MongoDB Atlas URI
-3. **Backend** (`CORS_ORIGIN`): Set to your Vercel frontend URL
-4. **Backend** (`CLOUDINARY_*`): Add for image uploads
-5. **Backend** (`JWT_SECRET`): Set to a random secure string
-
+1. Frontend Vercel environment
+   - `VITE_API_URL=https://ashok-tex-backend.onrender.com`
+   - `VITE_APP_NAME=Ashok Tex`
+2. Backend Render environment
+   - `MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/ashok-tex`
+   - `JWT_SECRET=your-super-secret-key-here`
+   - `JWT_EXPIRES_IN=7d`
+   - `CORS_ORIGIN=https://ashok-tex.vercel.app`
+   - `CLIENT_URL=https://ashok-tex.vercel.app` (optional legacy alias)
+   - `CLOUDINARY_NAME=your-cloudinary-name`
+   - `CLOUDINARY_KEY=your-cloudinary-key`
+   - `CLOUDINARY_SECRET=your-cloudinary-secret`
+   - `RENDER_EXTERNAL_URL=https://ashok-tex-backend.onrender.com` (optional keep-alive)
+3. If you change the MongoDB password or user, update the full `MONGO_URI` string in Render immediately and redeploy.4. Verify the backend after redeploy by visiting `https://ashok-tex-backend.onrender.com/api/health` and confirming it returns `status: ok`.
 📖 See **[DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)** for detailed instructions
 
 ---
@@ -158,22 +168,32 @@ npm run build
 
 ## 🔐 Environment Variables
 
-### Backend (`.env`)
+### Frontend local (`frontend/.env`)
+```env
+# Leave blank for local dev so Vite proxies to backend at localhost:5000
+VITE_API_URL=
+VITE_APP_NAME=Ashok Tex
+```
+
+### Frontend Vercel Environment
+```env
+VITE_API_URL=https://ashok-tex-backend.onrender.com
+VITE_APP_NAME=Ashok Tex
+```
+
+### Backend Render / production (`backend/.env`)
 ```env
 PORT=5000
 NODE_ENV=production
 MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/ashok-tex
 JWT_SECRET=your-super-secret-key-here
+JWT_EXPIRES_IN=7d
 CORS_ORIGIN=https://ashok-tex.vercel.app
+CLIENT_URL=https://ashok-tex.vercel.app
 CLOUDINARY_NAME=your-cloudinary-name
 CLOUDINARY_KEY=your-api-key
 CLOUDINARY_SECRET=your-api-secret
-```
-
-### Frontend (`.env`)
-```env
-VITE_API_URL=https://ashok-tex.up.railway.app
-VITE_APP_NAME=Ashok Tex
+RENDER_EXTERNAL_URL=https://ashok-tex-backend.onrender.com
 ```
 
 ---
@@ -182,10 +202,7 @@ VITE_APP_NAME=Ashok Tex
 
 | Document | Purpose |
 |----------|---------|
-| [QUICK_START.md](QUICK_START.md) | 🚀 Get deployed in 30 minutes |
-| [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) | ✅ Complete checklist for all platforms |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | 📖 Detailed deployment guide |
-| [GIT_SETUP.md](GIT_SETUP.md) | 🔧 Git installation & configuration |
+| [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) | ✅ Complete deployment checklist for Render + Vercel |
 
 ---
 
