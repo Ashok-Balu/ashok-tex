@@ -10,10 +10,10 @@ async function seed() {
   // Users
   await User.deleteMany({})
   await User.insertMany([
-    { username: 'admin',    password: await bcrypt.hash('admin123',    10), role: 'admin' },
-    { username: 'ashok',    password: await bcrypt.hash('ashok123',    10), role: 'user'  },
-    { username: 'arvinth',  password: await bcrypt.hash('arvinth123',  10), role: 'user'  },
-    { username: 'balusamy', password: await bcrypt.hash('balusamy123', 10), role: 'user'  },
+    { username: 'admin',    password: await bcrypt.hash('ashoktex', 10), role: 'admin' },
+    { username: 'ashok',    password: await bcrypt.hash('ashoktex', 10), role: 'user'  },
+    { username: 'arvinth',  password: await bcrypt.hash('ashoktex', 10), role: 'user'  },
+    { username: 'balusamy', password: await bcrypt.hash('ashoktex', 10), role: 'user'  },
   ])
   console.log('✅  Users seeded')
 
@@ -33,10 +33,10 @@ async function seed() {
   console.log('✅  Machine settings seeded')
 
   console.log('\n🎉  Seed complete!')
-  console.log('   admin     / admin123')
-  console.log('   ashok     / ashok123')
-  console.log('   arvinth   / arvinth123')
-  console.log('   balusamy  / balusamy123')
+  console.log('   admin     / ashoktex')
+  console.log('   ashok     / ashoktex')
+  console.log('   arvinth   / ashoktex')
+  console.log('   balusamy  / ashoktex')
 
   await mongoose.disconnect()
 }

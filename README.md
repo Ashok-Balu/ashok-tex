@@ -87,10 +87,10 @@ Open **http://localhost:3000** and login.
 
 | Username | Password    | Role  |
 |----------|-------------|-------|
-| admin     | admin123    | admin |
-| Ashok     | ashok123    | user  |
-| Arvinth   | arvinth123  | user  |
-| Balusamy  | balusamy123 | user  |
+| admin     | ashoktex    | admin |
+| Ashok     | ashoktex    | user  |
+| Arvinth   | ashoktex    | user  |
+| Balusamy  | ashoktex    | user  |
 <!-- Add more users here as needed in the future -->
 
 ---
