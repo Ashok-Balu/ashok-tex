@@ -52,11 +52,12 @@ function validate(req, res, next) {
 }
 
 // Cookie options — httpOnly so JS cannot read them (XSS-safe)
-// Use SameSite=None + Secure for non-local origins so Chrome accepts cross-site auth cookies.
+// Use SameSite=None for all environments so Chrome accepts cross-site auth cookies.
+// Use Secure only in production so local HTTP development still works.
 const COOKIE_BASE = {
   httpOnly: true,
-  secure:   process.env.NODE_ENV !== 'development',
-  sameSite: process.env.NODE_ENV !== 'development' ? 'none' : 'lax',
+  secure:   process.env.NODE_ENV === 'production',
+  sameSite: 'none',
   path:     '/',
 }
 
