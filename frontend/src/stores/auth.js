@@ -18,7 +18,9 @@ export const useAuthStore = defineStore('auth', () => {
       const res = await api.post('/auth/login', { username, password })
       user.value = res.data.user
       localStorage.setItem('at-user', JSON.stringify(user.value))
-      startSessionCheck()  // Start periodic session verification
+      setTimeout(() => {
+        if (user.value) startSessionCheck()
+      }, 3000)  // Delay session check so Chrome has time to persist cookies
       return true
     } catch (e) { error.value = e.response?.data?.message || 'Login failed'; return false }
     finally { loading.value = false }
@@ -36,20 +38,28 @@ export const useAuthStore = defineStore('auth', () => {
   function startSessionCheck() {
     if (sessionCheckInterval) return
     
+    let firstCheckDone = false
     const check = async () => {
       try {
         await api.get('/auth/session')
+        firstCheckDone = true
       } catch (err) {
         if (err.response?.status === 401) {
+          if (!firstCheckDone) {
+            console.warn('⚠️ First session validation failed, retrying...')
+            firstCheckDone = true
+            setTimeout(check, 2000)
+            return
+          }
           console.warn('❌ Session lost - user logged out')
           await logout()
         }
       }
     }
 
-    // Start checking after 1 second (don't check immediately on login)
+    // Start checking after 3 seconds (avoid premature logout on mobile Chrome)
     // Then every 5 minutes to catch token expiration
-    setTimeout(check, 1000)
+    setTimeout(check, 3000)
     sessionCheckInterval = setInterval(check, 5 * 60 * 1000)
   }
 
