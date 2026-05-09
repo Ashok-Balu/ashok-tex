@@ -1,5 +1,19 @@
 # Deployment Checklist
 
+## 🔒 Safe MongoDB Atlas Workflow
+
+**IMPORTANT:** Before ANY deployment or data modification:
+
+1. **Backup** - `npm run db:backup` (creates timestamped backup)
+2. **Test** - `npm run dev` (test locally first)
+3. **Verify** - Check all features work
+4. **Deploy** - Push and deploy
+5. **Monitor** - Check logs for errors
+
+See `MONGODB_SAFE_WORKFLOW.md` for complete guide.
+
+---
+
 ## Live URLs
 - Frontend: https://ashok-tex.vercel.app
 - Backend: https://ashok-tex-1.onrender.com
@@ -22,9 +36,9 @@ Set these environment variables in Render for the `backend/` service:
 ```env
 PORT=5000
 NODE_ENV=production
-MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/ashok-tex
+MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/ashoktex_prod
 JWT_SECRET=your-super-secret-key-here
-JWT_EXPIRES_IN=7d
+JWT_EXPIRES_IN=24h
 CORS_ORIGIN=https://ashok-tex.vercel.app
 CLIENT_URL=https://ashok-tex.vercel.app
 CLOUDINARY_NAME=your-cloudinary-name
@@ -41,7 +55,7 @@ If you rotate the Atlas database user password, update the full `MONGODB_URI` va
 > Atlas path: Database Access → Edit user → Generate new password → update env and Render environment variables.
 >
 > Example:
-> `mongodb+srv://dbuser:newPassword@cluster.mongodb.net/ashok-tex?retryWrites=true&w=majority`
+> `mongodb+srv://dbuser:newPassword@cluster.mongodb.net/ashoktex_prod?retryWrites=true&w=majority`
 >
 > Then redeploy the backend if Render does not automatically detect the env var change.
 >

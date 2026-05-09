@@ -6,7 +6,12 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "seed": "node seed.js",
+    "seed": "node seed.js --force",
+    "seed:safe": "node seed-safe.js --force",
+    "db:backup": "node scripts/backup.js",
+    "db:restore": "node scripts/restore.js",
+    "db:clear": "node scripts/clear-db.js --force --yes",
+    "db:clear:confirm": "node scripts/clear-db.js --force",
     "db:audit": "node scripts/db-collections-audit.js",
     "db:cleanup": "node scripts/db-collections-audit.js --drop --yes"
   },

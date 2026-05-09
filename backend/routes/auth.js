@@ -124,6 +124,18 @@ router.post('/logout', ah(async (req, res) => {
   res.json({ message: 'Logged out' })
 }))
 
+// GET /api/auth/session — verify session is valid (for mobile Chrome compatibility)
+router.get('/session', auth, ah(async (req, res) => {
+  res.json({ 
+    valid: true, 
+    user: {
+      id: req.user.id,
+      username: req.user.username,
+      role: req.user.role
+    }
+  })
+}))
+
 // POST /api/auth/register — admin only
 router.post('/register', registerLimiter, auth, registerValidation, validate, ah(async (req, res) => {
   if (req.user?.role !== 'admin')

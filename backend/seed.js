@@ -3,9 +3,24 @@ const mongoose = require('mongoose')
 const bcrypt   = require('bcryptjs')
 const { User, Company, MachineSetting } = require('./models')
 
+// Safety check: require --force flag to prevent accidental data loss
+const hasForceFlag = process.argv.includes('--force')
+if (!hasForceFlag) {
+  console.error('❌  ERROR: Seeding requires explicit --force flag to prevent accidental data loss')
+  console.error('   Usage: npm run seed -- --force')
+  console.error('   Or: node seed.js --force')
+  process.exit(1)
+}
+
 async function seed() {
   await mongoose.connect(process.env.MONGO_URI)
   console.log('🔌  Connected to MongoDB')
+
+  console.warn('⚠️  WARNING: This will DELETE all existing data in Users, Companies, and MachineSetting collections!')
+  console.warn('   Press Ctrl+C now if this was not intentional (you have 3 seconds)...\n')
+  
+  // Give user time to cancel
+  await new Promise(resolve => setTimeout(resolve, 3000))
 
   // Users
   await User.deleteMany({})
