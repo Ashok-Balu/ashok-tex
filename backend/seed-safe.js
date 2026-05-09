@@ -16,13 +16,14 @@ const bcrypt   = require('bcryptjs')
 const { User, Company, MachineSetting } = require('./models')
 
 // ── Safety Checks ──────────────────────────────────────────────────────────
-const NODE_ENV = process.env.NODE_ENV || 'development'
-const hasForceFlag = process.argv.includes('--force')
+const NODE_ENV      = process.env.NODE_ENV || 'development'
+const hasForceFlag  = process.argv.includes('--force')
+const allowProd     = process.argv.includes('--allow-prod')
 
-// Prevent running seed in production
-if (NODE_ENV === 'production') {
+// Prevent running seed in production unless --allow-prod is explicitly passed
+if (NODE_ENV === 'production' && !allowProd) {
   console.error('❌ ERROR: Cannot run seed script in production environment')
-  console.error('   To seed production, contact the administrator')
+  console.error('   Use: npm run seed:prod   (requires deliberate intent)')
   process.exit(1)
 }
 

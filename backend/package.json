@@ -10,6 +10,7 @@
     "seed": "cross-env NODE_ENV=development node seed.js --force",
     "seed:safe": "cross-env NODE_ENV=development node seed-safe.js --force",
     "seed:test": "cross-env NODE_ENV=test node seed-safe.js --force",
+    "seed:prod": "cross-env NODE_ENV=production node seed-safe.js --force --allow-prod",
     "db:backup": "cross-env NODE_ENV=production node scripts/backup.js",
     "db:restore": "cross-env NODE_ENV=production node scripts/restore.js",
     "db:clear": "cross-env NODE_ENV=development node scripts/clear-db.js --force --yes",
