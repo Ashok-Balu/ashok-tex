@@ -16,8 +16,9 @@ app.use(router)
 app.use(i18n)
 app.use(vuetify)
 
-// Restore session on app startup
-const authStore = useAuthStore()
-await authStore.restoreSession()
-
 app.mount('#app')
+
+// Restore session on app startup (after mount to avoid top-level await)
+const authStore = useAuthStore()
+authStore.restoreSession()
+
