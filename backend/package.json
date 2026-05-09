@@ -4,7 +4,7 @@
   "description": "Ashok Tex – REST API",
   "main": "server.js",
   "scripts": {
-    "start": "NODE_ENV=production node server.js",
+    "start": "cross-env NODE_ENV=production node server.js",
     "dev": "cross-env NODE_ENV=development nodemon server.js",
     "test-server": "cross-env NODE_ENV=test nodemon server.js",
     "seed": "cross-env NODE_ENV=development node seed.js --force",
@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "cross-env": "^7.0.3",
     "cloudinary": "^2.9.0",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
@@ -35,7 +36,6 @@
     "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {
-    "cross-env": "^7.0.3",
     "nodemon": "^3.1.0"
   },
   "engines": {
