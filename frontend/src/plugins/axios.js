@@ -12,28 +12,33 @@ const api = axios.create({
 // Silent token refresh logic
 let isRefreshing = false
 let failedQueue = []
-let lastRefreshTime = 0
-const REFRESH_INTERVAL = 20 * 60 * 1000  // Try refresh every 20 minutes (token lasts 24h)
+let lastRefreshTime = Date.now()  // Initialize to NOW to prevent immediate refresh on first request
+const REFRESH_INTERVAL = 10 * 60 * 1000  // Try refresh every 10 minutes (token lasts 24h)
 
 function processQueue(error) {
   failedQueue.forEach(p => error ? p.reject(error) : p.resolve())
   failedQueue = []
 }
 
-// Request interceptor: Proactively refresh token periodically
+// Request interceptor: Proactively refresh token periodically (but not on auth routes)
 api.interceptors.request.use(
   async config => {
-    const now = Date.now()
-    // Proactively refresh token every 20 minutes to prevent expiration
-    if (now - lastRefreshTime > REFRESH_INTERVAL && !isRefreshing) {
-      isRefreshing = true
-      try {
-        await api.post('/auth/refresh')
-        lastRefreshTime = now
-      } catch {
-        // Silent fail - user will be prompted when making actual requests
-      } finally {
-        isRefreshing = false
+    const url = config.url || ''
+    const isAuthRoute = url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/logout') || url.includes('/auth/session')
+    
+    // Only refresh on non-auth routes, and only if interval has passed
+    if (!isAuthRoute) {
+      const now = Date.now()
+      if (now - lastRefreshTime > REFRESH_INTERVAL && !isRefreshing) {
+        isRefreshing = true
+        try {
+          await api.post('/auth/refresh')
+          lastRefreshTime = now
+        } catch {
+          // Silent fail - token will refresh on next request if needed
+        } finally {
+          isRefreshing = false
+        }
       }
     }
     return config
@@ -47,7 +52,7 @@ api.interceptors.response.use(
   async err => {
     const original = err.config
     const url = original?.url || ''
-    const isAuthRoute = url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/logout')
+    const isAuthRoute = url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/logout') || url.includes('/auth/session')
 
     if (err.response?.status === 401 && !isAuthRoute && !original._retry) {
       if (isRefreshing) {

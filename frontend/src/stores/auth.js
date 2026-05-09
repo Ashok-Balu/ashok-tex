@@ -31,7 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
     stopSessionCheck()
   }
 
-  // Periodically verify session is valid (every 10 minutes)
+  // Periodically verify session is valid (every 5 minutes for mobile)
   // This catches cases where tokens expire silently, especially on mobile Chrome
   function startSessionCheck() {
     if (sessionCheckInterval) return
@@ -47,9 +47,10 @@ export const useAuthStore = defineStore('auth', () => {
       }
     }
 
-    // Check immediately, then every 10 minutes
-    check()
-    sessionCheckInterval = setInterval(check, 10 * 60 * 1000)
+    // Start checking after 1 second (don't check immediately on login)
+    // Then every 5 minutes to catch token expiration
+    setTimeout(check, 1000)
+    sessionCheckInterval = setInterval(check, 5 * 60 * 1000)
   }
 
   function stopSessionCheck() {
@@ -64,10 +65,15 @@ export const useAuthStore = defineStore('auth', () => {
     if (user.value) {
       try {
         await api.get('/auth/session')
-        startSessionCheck()
-      } catch {
-        user.value = null
-        localStorage.removeItem('at-user')
+        startSessionCheck()  // Only start checking if session validation succeeds
+      } catch (err) {
+        // If session validation fails, only logout on 401
+        // Other errors (network, timeout) don't trigger logout
+        if (err.response?.status === 401) {
+          console.warn('Session validation failed - logging out')
+          user.value = null
+          localStorage.removeItem('at-user')
+        }
       }
     }
   }
