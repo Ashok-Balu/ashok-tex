@@ -18,6 +18,9 @@ export const useAuthStore = defineStore('auth', () => {
       const res = await api.post('/auth/login', { username, password })
       user.value = res.data.user
       localStorage.setItem('at-user', JSON.stringify(user.value))
+      if (res.data.accessToken) {
+        localStorage.setItem('at-token', res.data.accessToken)
+      }
       setTimeout(() => {
         if (user.value) startSessionCheck()
       }, 3000)  // Delay session check so Chrome has time to persist cookies
@@ -30,6 +33,7 @@ export const useAuthStore = defineStore('auth', () => {
     try { await api.post('/auth/logout') } catch {}
     user.value = null
     localStorage.removeItem('at-user')
+    localStorage.removeItem('at-token')
     stopSessionCheck()
   }
 

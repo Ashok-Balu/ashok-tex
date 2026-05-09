@@ -61,13 +61,18 @@ const COOKIE_BASE = {
   path:     '/',
 }
 
-function setAccessCookie(res, user) {
-  const token = jwt.sign(
+function createAccessToken(user) {
+  return jwt.sign(
     { id: user._id, username: user.username, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
   )
+}
+
+function setAccessCookie(res, user) {
+  const token = createAccessToken(user)
   res.cookie('accessToken', token, { ...COOKIE_BASE, maxAge: 24 * 60 * 60 * 1000 })
+  return token
 }
 
 async function setRefreshCookie(res, userId) {
@@ -91,9 +96,9 @@ router.post('/login', loginLimiter, loginValidation, validate, ah(async (req, re
   const ok = await bcrypt.compare(password, user.password)
   if (!ok) return res.status(401).json({ message: 'Invalid credentials' })
 
-  setAccessCookie(res, user)
+  const accessToken = setAccessCookie(res, user)
   await setRefreshCookie(res, user._id)
-  res.json({ user: { id: user._id, username: user.username, role: user.role } })
+  res.json({ user: { id: user._id, username: user.username, role: user.role }, accessToken })
 }))
 
 // POST /api/auth/refresh — silent token renewal using refresh cookie
@@ -110,8 +115,8 @@ router.post('/refresh', ah(async (req, res) => {
     return res.status(401).json({ message: 'Refresh token expired, please log in again' })
   }
 
-  setAccessCookie(res, stored.user)
-  res.json({ user: { id: stored.user._id, username: stored.user.username, role: stored.user.role } })
+  const accessToken = setAccessCookie(res, stored.user)
+  res.json({ user: { id: stored.user._id, username: stored.user.username, role: stored.user.role }, accessToken })
 }))
 
 // POST /api/auth/logout — invalidate refresh token and clear cookies

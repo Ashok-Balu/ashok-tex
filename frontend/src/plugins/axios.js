@@ -25,6 +25,14 @@ api.interceptors.request.use(
   async config => {
     const url = config.url || ''
     const isAuthRoute = url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/logout') || url.includes('/auth/session')
+
+    const storedToken = localStorage.getItem('at-token')
+    if (storedToken && !config.headers?.Authorization) {
+      config.headers = {
+        ...config.headers,
+        Authorization: `Bearer ${storedToken}`,
+      }
+    }
     
     // Only refresh on non-auth routes, and only if interval has passed
     if (!isAuthRoute) {
@@ -65,7 +73,10 @@ api.interceptors.response.use(
       isRefreshing = true
       try {
         console.warn('⚠️  Token expired, attempting refresh...')
-        await api.post('/auth/refresh')
+        const refreshRes = await api.post('/auth/refresh')
+        if (refreshRes.data?.accessToken) {
+          localStorage.setItem('at-token', refreshRes.data.accessToken)
+        }
         lastRefreshTime = Date.now()
         processQueue(null)
         return api(original)
@@ -73,6 +84,7 @@ api.interceptors.response.use(
         console.error('❌ Session expired - redirecting to login')
         processQueue(new Error('Session expired'))
         localStorage.removeItem('at-user')
+        localStorage.removeItem('at-token')
         window.location.href = '/login'
         return Promise.reject(refreshErr)
       } finally {
