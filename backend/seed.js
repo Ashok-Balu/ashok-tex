@@ -1,7 +1,15 @@
-require('dotenv').config()
+const path = require('path')
+const ENV  = process.env.NODE_ENV || 'development'
+require('dotenv').config({ path: path.resolve(__dirname, `.env.${ENV}`) })
 const mongoose = require('mongoose')
 const bcrypt   = require('bcryptjs')
 const { User, Company, MachineSetting } = require('./models')
+
+// Safety check: block production entirely
+if (process.env.NODE_ENV === 'production') {
+  console.log('❌ Cannot run seed in production')
+  process.exit(1)
+}
 
 // Safety check: require --force flag to prevent accidental data loss
 const hasForceFlag = process.argv.includes('--force')

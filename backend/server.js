@@ -1,4 +1,9 @@
-require('dotenv').config()
+const path = require('path')
+const ENV  = process.env.NODE_ENV || 'development'
+require('dotenv').config({ path: path.resolve(__dirname, `.env.${ENV}`) })
+
+console.log('Running Environment:', ENV)
+console.log('Mongo URI:', process.env.MONGO_URI)
 const express         = require('express')
 const cors            = require('cors')
 const mongoose        = require('mongoose')
