@@ -47,6 +47,10 @@ router.get('/:id/deletion-stats', ah(async (req, res) => {
 
 // Delete company with cascading deletes
 router.delete('/:id', ah(async (req, res) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ message: 'Forbidden – admin only' })
+  }
+
   const { id } = req.params
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ message: 'Invalid company id' })

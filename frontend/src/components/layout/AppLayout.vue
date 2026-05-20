@@ -96,6 +96,7 @@ const nav = [
   { to: '/dashboard',  key: 'dashboard',  icon: 'mdi-view-dashboard' },
   { to: '/companies',  key: 'companies',  icon: 'mdi-domain' },
   { to: '/orders',     key: 'orders',     icon: 'mdi-package-variant' },
+  { to: '/allocations', key: 'payment',   icon: 'mdi-source-branch' },
   { to: '/payroll',    key: 'payroll',    icon: 'mdi-cash-multiple' },
   { to: '/company-statement', key: 'companyStatement', icon: 'mdi-file-table-box' },
 ]

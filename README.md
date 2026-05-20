@@ -81,17 +81,6 @@ npm run dev           # Starts on http://localhost:3000
 
 Open **http://localhost:3000** and login.
 
----
-
-## 🔐 Default Logins
-
-| Username | Password    | Role  |
-|----------|-------------|-------|
-| admin     | ashoktex    | admin |
-| Ashok     | ashoktex    | user  |
-| Arvinth   | ashoktex    | user  |
-| Balusamy  | ashoktex    | user  |
-<!-- Add more users here as needed in the future -->
 
 ---
 

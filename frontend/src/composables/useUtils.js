@@ -3,7 +3,7 @@ import { useI18n } from 'vue-i18n'
 export function useUtils() {
   const { t } = useI18n()
 
-  const fmt  = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
+  const fmt  = n => '₹' + Math.round(Number(n || 0)).toLocaleString('en-IN')
   const fmtN = n => Number(n || 0).toLocaleString('en-IN')
   const fmtDate = d => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'
   const fmtDateShort = d => {

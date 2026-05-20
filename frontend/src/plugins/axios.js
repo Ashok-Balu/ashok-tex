@@ -39,14 +39,10 @@ api.interceptors.request.use(
       const now = Date.now()
       if (now - lastRefreshTime > REFRESH_INTERVAL && !isRefreshing) {
         isRefreshing = true
-        try {
-          await api.post('/auth/refresh')
-          lastRefreshTime = now
-        } catch {
-          // Silent fail - token will refresh on next request if needed
-        } finally {
-          isRefreshing = false
-        }
+        lastRefreshTime = now  // Stamp immediately to prevent parallel refresh calls
+        // Fire-and-forget — do NOT await; refreshing in background so the current
+        // request is not blocked by the round-trip to /auth/refresh.
+        api.post('/auth/refresh').catch(() => {}).finally(() => { isRefreshing = false })
       }
     }
     return config

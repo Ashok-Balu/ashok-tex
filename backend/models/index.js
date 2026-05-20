@@ -31,12 +31,22 @@ const orderSchema = new Schema({
   endDate:       { type: Date, default: null },
   expectedMeter: { type: Number, default: 0 },
   producedMeter: { type: Number, default: 0 },
+  rejectedMeter: { type: Number, default: 0 },
+  acceptedMeter: { type: Number, default: 0 },
+  lossMeter:     { type: Number, default: 0 },
+  lossAmount:    { type: Number, default: 0 },
   ratePerMeter:  { type: Number, default: 0 },
   deductionPct:  { type: Number, default: 20 },
   totalReceived: { type: Number, default: 0 },
+  averageWeightPerMeter: { type: Number, default: 0 },
+  yarnShortageEnteredAmount: { type: Number, default: 0 },
   status:            { type: String, enum: ['active', 'completed'], default: 'active' },
   sampleImage:       { type: String, default: '' },
   manuallyCompleted: { type: Boolean, default: false },
+  productionClosed:  { type: Boolean, default: false },
+  financialClosed:   { type: Boolean, default: false },
+  archived:          { type: Boolean, default: false },
+  archivedAt:        { type: Date, default: null },
 }, { timestamps: true })
 
 // Auto status — skip if manually completed by user
@@ -50,6 +60,8 @@ orderSchema.pre('save', function (next) {
 orderSchema.index({ status: 1 })
 orderSchema.index({ company: 1, status: 1 })
 orderSchema.index({ createdAt: -1 })
+orderSchema.index({ archived: 1, updatedAt: -1 })
+orderSchema.index({ company: 1, archived: 1, status: 1 })
 
 // ── Nool Receipt ──────────────────────────────────────────────────────────────
 const noolSchema = new Schema({
@@ -83,6 +95,16 @@ const productionSchema = new Schema({
 }, { timestamps: true })
 productionSchema.index({ order: 1, date: -1 })
 productionSchema.index({ date: -1 })
+
+// ── Rejection Entry ──────────────────────────────────────────────────────────
+const rejectionSchema = new Schema({
+  order:       { type: Schema.Types.ObjectId, ref: 'Order', required: true },
+  date:        { type: Date, default: Date.now },
+  rejectedQty: { type: Number, required: true, min: 0 },
+  reason:      { type: String, trim: true, default: '' },
+  notes:       { type: String, trim: true, default: '' },
+}, { timestamps: true })
+rejectionSchema.index({ order: 1, date: -1 })
 
 // ── Machine Setting ───────────────────────────────────────────────────────────
 const machineSettingSchema = new Schema({
@@ -118,6 +140,21 @@ const paymentSchema = new Schema({
 paymentSchema.index({ company: 1, date: -1 })
 paymentSchema.index({ date: -1 })
 paymentSchema.index({ transactionType: 1, date: -1 })
+// Compound index for dashboard aggregations that group by company filtered by transactionType
+paymentSchema.index({ transactionType: 1, company: 1, amount: 1 })
+
+// ── Payment Allocation (company receipt -> order split) ────────────────────
+const paymentAllocationSchema = new Schema({
+  company:  { type: Schema.Types.ObjectId, ref: 'Company', required: true },
+  receipt:  { type: Schema.Types.ObjectId, ref: 'Payment', required: true },
+  order:    { type: Schema.Types.ObjectId, ref: 'Order', required: true },
+  amount:   { type: Number, required: true, min: 0 },
+  date:     { type: Date, default: Date.now },
+  notes:    { type: String, trim: true, default: '' },
+}, { timestamps: true })
+paymentAllocationSchema.index({ company: 1, date: -1 })
+paymentAllocationSchema.index({ receipt: 1, order: 1 })
+paymentAllocationSchema.index({ order: 1, date: -1 })
 
 // ── Employee (for Payroll) ────────────────────────────────────────────────────
 const employeeSchema = new Schema({
@@ -172,6 +209,8 @@ const paymentHistorySchema = new Schema({
   paymentMethod:  { type: String, enum: ['cash', 'transfer', 'check', 'other'], default: 'cash' },
   notes:          { type: String, default: '' }
 }, { timestamps: true })
+paymentHistorySchema.index({ payrollId: 1, employeeId: 1 })
+paymentHistorySchema.index({ employeeId: 1, paymentDate: -1 })
 
 module.exports = {
   User:              mongoose.model('User',              userSchema),
@@ -180,9 +219,11 @@ module.exports = {
   Order:             mongoose.model('Order',             orderSchema),
   Nool:              mongoose.model('Nool',              noolSchema),
   Production:        mongoose.model('Production',        productionSchema),
+  Rejection:         mongoose.model('Rejection',         rejectionSchema),
   MachineSetting:    mongoose.model('MachineSetting',    machineSettingSchema),
   Expense:           mongoose.model('Expense',           expenseSchema),
   Payment:           mongoose.model('Payment',           paymentSchema),
+  PaymentAllocation: mongoose.model('PaymentAllocation', paymentAllocationSchema),
   Employee:          mongoose.model('Employee',          employeeSchema),
   Payroll:           mongoose.model('Payroll',           payrollSchema),
   PaymentHistory:    mongoose.model('PaymentHistory',    paymentHistorySchema),

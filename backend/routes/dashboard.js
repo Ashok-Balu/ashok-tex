@@ -2,7 +2,7 @@ const router   = require('express').Router()
 const ah       = require('express-async-handler')
 const auth     = require('../middleware/auth')
 const mongoose = require('mongoose')
-const { Order, Production, Expense, Payment, MachineSetting, Company } = require('../models')
+const { Order, Production, Expense, Payment, PaymentAllocation, MachineSetting, Company } = require('../models')
 
 router.use(auth)
 
@@ -19,38 +19,30 @@ router.get('/', ah(async (req, res) => {
     todayProd, monthExp,
     monthPay, setting,
     companyOrders,
+    allCompanies,
     paymentByCompany,
     latestPaymentByCompany,
+    receiptByCompany,
+    deductionByCompany,
   ] = await Promise.all([
-    Order.countDocuments({ status: 'active' }),
-    Order.countDocuments({ status: 'completed' }),
+    Order.countDocuments({ status: 'active', archived: { $ne: true } }),
+    Order.countDocuments({ status: 'completed', archived: { $ne: true } }),
     Production.aggregate([{ $match: { date: { $gte: todayStart, $lte: todayEnd } } }, { $group: { _id: null, t: { $sum: '$meter' } } }]),
     Expense.aggregate([{ $match: { date: { $gte: monthStart } } },                     { $group: { _id: null, t: { $sum: '$amount' } } }]),
     Payment.aggregate([{ $match: { date: { $gte: monthStart }, transactionType: { $ne: 'deduction' } } }, { $group: { _id: null, t: { $sum: '$amount' } } }]),
     MachineSetting.findOne().lean(),
-    Order.aggregate([
-      {
-        $lookup: {
-          from: 'companies', localField: 'company', foreignField: '_id',
-          as: 'co', pipeline: [{ $project: { name: 1 } }]
-        }
-      },
-      { $addFields: { company: { $arrayElemAt: ['$co', 0] } } },
-      { $project: { orderName:1, status:1, producedMeter:1, expectedMeter:1, ratePerMeter:1, deductionPct:1, updatedAt:1, createdAt:1, 'company._id':1, 'company.name':1 } }
-    ]),
-    Payment.aggregate([
+    // Fetch orders and companies separately — avoids expensive $lookup aggregation.
+    // Order.find with lean() and a minimal projection is significantly faster.
+    Order.find({})
+      .select('orderName company status archived producedMeter rejectedMeter acceptedMeter expectedMeter ratePerMeter deductionPct updatedAt createdAt')
+      .lean(),
+    Company.find({}).select('name').lean(),
+    PaymentAllocation.aggregate([
       {
         $group: {
           _id: '$company',
           totalPaid: {
-            $sum: {
-              $cond: [{ $eq: ['$transactionType', 'deduction'] }, 0, '$amount'],
-            },
-          },
-          totalDeductionCollected: {
-            $sum: {
-              $cond: [{ $eq: ['$transactionType', 'deduction'] }, '$amount', 0],
-            },
+            $sum: '$amount',
           },
         },
       },
@@ -58,47 +50,79 @@ router.get('/', ah(async (req, res) => {
     Payment.aggregate([
       { $group: { _id: '$company', lastAt: { $max: '$updatedAt' } } },
     ]),
+    Payment.aggregate([
+      { $match: { transactionType: { $ne: 'deduction' } } },
+      { $group: { _id: '$company', totalReceipt: { $sum: '$amount' } } },
+    ]),
+    Payment.aggregate([
+      { $match: { transactionType: 'deduction' } },
+      { $group: { _id: '$company', totalDeductionCollected: { $sum: '$amount' } } },
+    ]),
   ])
 
-  const paidMap = new Map(paymentByCompany.map(row => [String(row._id), row.totalPaid || 0]))
-  const deductionCollectedMap = new Map(paymentByCompany.map(row => [String(row._id), row.totalDeductionCollected || 0]))
+  const allocatedMap = new Map(paymentByCompany.map(row => [String(row._id), Number(row.totalPaid || 0)]))
+  const deductionCollectedMap = new Map(deductionByCompany.map(row => [String(row._id), Number(row.totalDeductionCollected || 0)]))
   const latestPaymentAtMap = new Map(latestPaymentByCompany.map(row => [String(row._id), row.lastAt]))
+  const receiptMap = new Map(receiptByCompany.map(row => [String(row._id), Number(row.totalReceipt || 0)]))
+  // Build company name lookup from the separate query — faster than $lookup aggregate
+  const companyNameMap = new Map(allCompanies.map(c => [String(c._id), c.name]))
 
   const byCompany = new Map()
   for (const o of companyOrders) {
-    const companyId = o.company?._id?.toString() || 'unknown'
+    const companyId = String(o.company || 'unknown')
+    const isArchived = !!o.archived
     const entry = byCompany.get(companyId) || {
       companyId,
-      companyName: o.company?.name || 'Unknown',
+      companyName: companyNameMap.get(companyId) || 'Unknown',
       orderCount: 0,
       activeOrders: 0,
       completedOrders: 0,
       paymentPending: 0,
       paymentCompleted: 0,
       producedMeter: 0,
+      rejectedMeter: 0,
       expectedMeter: 0,
       remainingMeter: 0,
       totalProducedValue: 0,
       totalDeductionNeedToGet: 0,
       totalDeductionCollected: deductionCollectedMap.get(companyId) || 0,
       totalPayableAmount: 0,
-      totalPaidAmount: paidMap.get(companyId) || 0,
+      totalRejectionGrossLoss: 0,
+      totalRejectionDeductionLoss: 0,
+      totalRejectionNetLoss: 0,
+      totalAllocatedAmount: allocatedMap.get(companyId) || 0,
+      totalPaidAmount: receiptMap.get(companyId) || 0,
       totalPendingToPay: 0,
     }
 
-    const totalValue = (o.producedMeter || 0) * (o.ratePerMeter || 0)
-    const deduction = totalValue * ((o.deductionPct || 0) / 100)
+    const producedMeter = Number(o.producedMeter || 0)
+    const acceptedMeter = Number(o.acceptedMeter || Math.max(0, Number(o.producedMeter || 0) - Number(o.rejectedMeter || 0)))
+    const rejectedMeter = Number(o.rejectedMeter || Math.max(0, producedMeter - acceptedMeter))
+    const ratePerMeter = Number(o.ratePerMeter || 0)
+    const deductionPct = Number(o.deductionPct || 0)
+    const totalValue = acceptedMeter * ratePerMeter
+    const deduction = totalValue * (deductionPct / 100)
     const payable = totalValue - deduction
+    const rejectionGrossLoss = rejectedMeter * ratePerMeter
+    const rejectionDeductionLoss = rejectionGrossLoss * (deductionPct / 100)
+    const rejectionNetLoss = rejectionGrossLoss - rejectionDeductionLoss
 
-    entry.orderCount += 1
-    entry.activeOrders += o.status === 'active' ? 1 : 0
-    entry.completedOrders += o.status === 'completed' ? 1 : 0
-    entry.producedMeter += o.producedMeter || 0
-    entry.expectedMeter += o.expectedMeter || 0
-    entry.remainingMeter += Math.max(0, (o.expectedMeter || 0) - (o.producedMeter || 0))
-    entry.totalProducedValue += totalValue
+    if (!isArchived) {
+      entry.orderCount += 1
+      entry.activeOrders += o.status === 'active' ? 1 : 0
+      entry.completedOrders += o.status === 'completed' ? 1 : 0
+      entry.producedMeter += acceptedMeter
+      entry.rejectedMeter += rejectedMeter
+      entry.expectedMeter += o.expectedMeter || 0
+      entry.remainingMeter += Math.max(0, (o.expectedMeter || 0) - (o.producedMeter || 0))
+      entry.totalProducedValue += totalValue
+      entry.totalPayableAmount += payable
+      entry.totalRejectionGrossLoss += rejectionGrossLoss
+      entry.totalRejectionDeductionLoss += rejectionDeductionLoss
+      entry.totalRejectionNetLoss += rejectionNetLoss
+    }
+    // Deduction need stays visible even after archive until order is deleted.
     entry.totalDeductionNeedToGet += deduction
-    entry.totalPayableAmount += payable
     // track most recent order activity
     const oTs = new Date(o.updatedAt || o.createdAt || 0).getTime()
     if (oTs > (entry._lastOrderTs || 0)) entry._lastOrderTs = oTs
@@ -107,7 +131,9 @@ router.get('/', ah(async (req, res) => {
   }
 
   const companyOrderSummary = Array.from(byCompany.values()).map(entry => {
-    const pending = Math.max(0, entry.totalPayableAmount - entry.totalPaidAmount)
+    const allocatedAmount = Number(entry.totalAllocatedAmount || 0)
+    const receiptAmount = Number(entry.totalPaidAmount || 0)
+    const pending = Math.max(0, entry.totalPayableAmount - receiptAmount)
     const deductionOutstanding = Math.max(0, Number(entry.totalDeductionNeedToGet || 0) - Number(entry.totalDeductionCollected || 0))
     const paymentTs = new Date(latestPaymentAtMap.get(entry.companyId) || 0).getTime()
     const lastActivityAt = new Date(Math.max(entry._lastOrderTs || 0, paymentTs)).toISOString()
@@ -116,6 +142,8 @@ router.get('/', ah(async (req, res) => {
       _lastOrderTs: undefined,
       lastActivityAt,
       totalDeductionNeedToGet: deductionOutstanding,
+      totalReceiptAmount: receiptAmount,
+      totalUnallocatedAmount: Math.max(0, receiptAmount - allocatedAmount),
       paymentPending: pending > 0 ? 1 : 0,
       paymentCompleted: pending <= 0 ? 1 : 0,
       totalPendingToPay: pending,
@@ -124,6 +152,10 @@ router.get('/', ah(async (req, res) => {
 
   const pendingAmount = companyOrderSummary.reduce((sum, row) => sum + (row.totalPendingToPay || 0), 0)
   const deductionHoldAmount = companyOrderSummary.reduce((sum, row) => sum + (row.totalDeductionNeedToGet || 0), 0)
+  const totalRejectedMeter = companyOrderSummary.reduce((sum, row) => sum + Number(row.rejectedMeter || 0), 0)
+  const totalRejectionGrossLoss = companyOrderSummary.reduce((sum, row) => sum + Number(row.totalRejectionGrossLoss || 0), 0)
+  const totalRejectionDeductionLoss = companyOrderSummary.reduce((sum, row) => sum + Number(row.totalRejectionDeductionLoss || 0), 0)
+  const totalRejectionNetLoss = companyOrderSummary.reduce((sum, row) => sum + Number(row.totalRejectionNetLoss || 0), 0)
   const pendingPaymentCount = companyOrderSummary.filter(row => (row.totalPendingToPay || 0) > 0).length
   const completedPaymentCount = companyOrderSummary.filter(row => (row.totalPendingToPay || 0) <= 0).length
 
@@ -137,6 +169,10 @@ router.get('/', ah(async (req, res) => {
     pendingPaymentCount,
     completedPaymentCount,
     deductionHoldAmount,
+    totalRejectedMeter,
+    totalRejectionGrossLoss,
+    totalRejectionDeductionLoss,
+    totalRejectionNetLoss,
     monthlyReceipt:    monthPay[0]?.t      || 0,
     companyOrderSummary,
   })
@@ -148,28 +184,39 @@ router.get('/company-payments/:companyId', ah(async (req, res) => {
     return res.status(400).json({ message: 'Invalid company id' })
   }
 
-  const now = new Date()
-  const from = req.query.from ? new Date(req.query.from) : new Date(now.getFullYear(), now.getMonth(), 1)
-  const to = req.query.to ? new Date(req.query.to) : now
-  to.setHours(23, 59, 59, 999)
+  const hasFrom = typeof req.query.from === 'string' && req.query.from.trim() !== ''
+  const hasTo = typeof req.query.to === 'string' && req.query.to.trim() !== ''
+
+  const from = hasFrom ? new Date(req.query.from) : null
+  const to = hasTo ? new Date(req.query.to) : null
+
+  if (hasFrom && Number.isNaN(from.getTime())) {
+    return res.status(400).json({ message: 'Invalid from date' })
+  }
+  if (hasTo && Number.isNaN(to.getTime())) {
+    return res.status(400).json({ message: 'Invalid to date' })
+  }
+  if (to) to.setHours(23, 59, 59, 999)
 
   const companyObjectId = new mongoose.Types.ObjectId(companyId)
 
-  const [company, rows, rangeAgg, orderAgg] = await Promise.all([
+  const paymentMatch = { company: companyObjectId }
+  if (from || to) {
+    paymentMatch.date = {}
+    if (from) paymentMatch.date.$gte = from
+    if (to) paymentMatch.date.$lte = to
+  }
+  const [company, rows, rangeAgg, orderAgg, allocatedRangeAgg] = await Promise.all([
     Company.findById(companyId).select('name'),
-    Payment.find({ company: companyObjectId, date: { $gte: from, $lte: to } })
+    Payment.find(paymentMatch)
       .select('date amount mode notes transactionType')
       .sort({ date: -1 }),
     Payment.aggregate([
-      { $match: { company: companyObjectId, date: { $gte: from, $lte: to } } },
+      { $match: paymentMatch },
       {
         $group: {
           _id: null,
-          totalPaidInRange: {
-            $sum: {
-              $cond: [{ $eq: ['$transactionType', 'deduction'] }, 0, '$amount'],
-            },
-          },
+          totalPaidInRange: { $sum: { $cond: [{ $eq: ['$transactionType', 'deduction'] }, 0, '$amount'] } },
           totalDeductionInRange: {
             $sum: {
               $cond: [{ $eq: ['$transactionType', 'deduction'] }, '$amount', 0],
@@ -181,32 +228,74 @@ router.get('/company-payments/:companyId', ah(async (req, res) => {
     Order.aggregate([
       { $match: { company: companyObjectId } },
       {
+        $addFields: {
+          _isArchived: { $eq: ['$archived', true] },
+          _acceptedMeter: {
+            $ifNull: [
+              '$acceptedMeter',
+              { $max: [0, { $subtract: [{ $ifNull: ['$producedMeter', 0] }, { $ifNull: ['$rejectedMeter', 0] }] }] },
+            ],
+          },
+        },
+      },
+      {
         $group: {
           _id: null,
-          orderCount: { $sum: 1 },
-          activeOrders: { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } },
-          completedOrders: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
-          producedMeter: { $sum: { $ifNull: ['$producedMeter', 0] } },
-          expectedMeter: { $sum: { $ifNull: ['$expectedMeter', 0] } },
+          orderCount: { $sum: { $cond: ['$_isArchived', 0, 1] } },
+          activeOrders: {
+            $sum: {
+              $cond: [{ $and: [{ $eq: ['$status', 'active'] }, { $eq: ['$_isArchived', false] }] }, 1, 0],
+            },
+          },
+          completedOrders: {
+            $sum: {
+              $cond: [{ $and: [{ $eq: ['$status', 'completed'] }, { $eq: ['$_isArchived', false] }] }, 1, 0],
+            },
+          },
+          producedMeter: { $sum: { $cond: ['$_isArchived', 0, { $ifNull: ['$producedMeter', 0] }] } },
+          expectedMeter: { $sum: { $cond: ['$_isArchived', 0, { $ifNull: ['$expectedMeter', 0] }] } },
+          rejectedMeter: { $sum: { $cond: ['$_isArchived', 0, { $ifNull: ['$rejectedMeter', 0] }] } },
+          acceptedMeter: { $sum: { $cond: ['$_isArchived', 0, '$_acceptedMeter'] } },
           totalProducedValue: {
             $sum: {
-              $multiply: [
-                { $ifNull: ['$producedMeter', 0] },
-                { $ifNull: ['$ratePerMeter', 0] },
-              ],
+              $cond: ['$_isArchived', 0, { $multiply: ['$_acceptedMeter', { $ifNull: ['$ratePerMeter', 0] }] }],
             },
           },
           totalDeductionNeedToGet: {
             $sum: {
               $multiply: [
-                { $ifNull: ['$producedMeter', 0] },
+                '$_acceptedMeter',
                 { $ifNull: ['$ratePerMeter', 0] },
                 { $divide: [{ $ifNull: ['$deductionPct', 0] }, 100] },
               ],
             },
           },
+          totalDeductionForPayable: {
+            $sum: {
+              $cond: [
+                '$_isArchived',
+                0,
+                {
+                  $multiply: [
+                    '$_acceptedMeter',
+                    { $ifNull: ['$ratePerMeter', 0] },
+                    { $divide: [{ $ifNull: ['$deductionPct', 0] }, 100] },
+                  ],
+                },
+              ],
+            },
+          },
         },
       },
+    ]),
+    PaymentAllocation.aggregate([
+      {
+        $match: {
+          company: companyObjectId,
+          ...(from || to ? { date: { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) } } : {}),
+        },
+      },
+      { $group: { _id: null, totalAllocatedInRange: { $sum: '$amount' } } },
     ]),
   ])
 
@@ -216,11 +305,19 @@ router.get('/company-payments/:companyId', ah(async (req, res) => {
     completedOrders: 0,
     producedMeter: 0,
     expectedMeter: 0,
+    rejectedMeter: 0,
+    acceptedMeter: 0,
     totalProducedValue: 0,
     totalDeductionNeedToGet: 0,
+    totalDeductionForPayable: 0,
   }
 
-  const totalPaidAllTime = await Payment.aggregate([
+  const [totalPaidAllTime, receiptAllTime] = await Promise.all([
+    PaymentAllocation.aggregate([
+      { $match: { company: companyObjectId } },
+      { $group: { _id: null, totalPaid: { $sum: '$amount' } } },
+    ]),
+    Payment.aggregate([
     { $match: { company: companyObjectId } },
     {
       $group: {
@@ -237,13 +334,16 @@ router.get('/company-payments/:companyId', ah(async (req, res) => {
         },
       },
     },
+  ]),
   ])
 
-  const totalPayableAmount = (companyTotals.totalProducedValue || 0) - (companyTotals.totalDeductionNeedToGet || 0)
+  const totalPayableAmount = Math.max(0, (companyTotals.totalProducedValue || 0) - (companyTotals.totalDeductionForPayable || 0))
   const totalPaidAmount = totalPaidAllTime[0]?.totalPaid || 0
-  const totalDeductionCollected = totalPaidAllTime[0]?.totalDeductionCollected || 0
+  const totalReceiptAmount = receiptAllTime[0]?.totalPaid || 0
+  const totalDeductionCollected = receiptAllTime[0]?.totalDeductionCollected || 0
   const totalDeductionNeedToGet = Math.max(0, (companyTotals.totalDeductionNeedToGet || 0) - totalDeductionCollected)
-  const totalPendingToPay = Math.max(0, totalPayableAmount - totalPaidAmount)
+  const totalPendingToPay = Math.max(0, totalPayableAmount - totalReceiptAmount)
+  const totalUnallocatedAmount = Math.max(0, totalReceiptAmount - totalPaidAmount)
 
   res.json({
     from,
@@ -255,14 +355,19 @@ router.get('/company-payments/:companyId', ah(async (req, res) => {
       completedOrders: companyTotals.completedOrders || 0,
       producedMeter: companyTotals.producedMeter || 0,
       expectedMeter: companyTotals.expectedMeter || 0,
+      rejectedMeter: companyTotals.rejectedMeter || 0,
+      acceptedMeter: companyTotals.acceptedMeter || 0,
       totalProducedValue: companyTotals.totalProducedValue || 0,
       totalDeductionNeedToGet,
       totalDeductionCollected,
       totalPayableAmount,
       totalPaidAmount,
+      totalReceiptAmount,
+      totalUnallocatedAmount,
       totalPendingToPay,
-      totalPaidInRange: rangeAgg[0]?.totalPaidInRange || 0,
+      totalPaidInRange: allocatedRangeAgg[0]?.totalAllocatedInRange || 0,
       totalDeductionInRange: rangeAgg[0]?.totalDeductionInRange || 0,
+      totalReceiptInRange: rangeAgg[0]?.totalPaidInRange || 0,
     },
     rows,
   })

@@ -32,7 +32,7 @@
             </th>
           </tr>
         </thead>
-        <tbody v-if="pagedRows.length">
+        <tbody v-if="pagedRows.length || footerRows.length">
           <tr v-for="(row, rowIndex) in pagedRows" :key="row._id || rowIndex">
             <td
               v-for="(col, colIndex) in effectiveColumnDefs"
@@ -42,13 +42,29 @@
               @click="handleCellClick(col, row, $event)"
             >
               <div
-                v-if="hasHtmlRenderer(col)"
+                v-if="hasHtmlRenderer(col) && !isFooterRow(row)"
                 v-html="getRenderedHtml(col, row)"
               />
               <span v-else>{{ getDisplayValue(col, row) }}</span>
             </td>
           </tr>
+
+          <tr
+            v-for="(row, rowIndex) in footerRows"
+            :key="row._id || `footer-${rowIndex}`"
+            class="at-grid-footer-row"
+          >
+            <td
+              v-for="(col, colIndex) in effectiveColumnDefs"
+              :key="(col.field || col.headerName || colIndex) + '-footer-' + rowIndex"
+              :class="getCellClass(col)"
+              :style="getCellStyle(col, row)"
+            >
+              <span>{{ getDisplayValue(col, row) }}</span>
+            </td>
+          </tr>
         </tbody>
+
       </table>
 
       <div v-if="!pagedRows.length" class="at-grid-empty">
@@ -82,6 +98,7 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue'
 const props = defineProps({
   rowData:     { type: Array,  default: () => [] },
   columnDefs:  { type: Array,  default: () => [] },
+  footerRows:  { type: Array,  default: () => [] },
   height:      { type: String, default: '450px' },
   pagination:  { type: Boolean, default: true },
   pageSize:    { type: Number,  default: 15 },
@@ -182,6 +199,10 @@ function getDisplayValue(col, row) {
 
 function hasHtmlRenderer(col) {
   return typeof col.cellRenderer === 'function'
+}
+
+function isFooterRow(row) {
+  return !!row?.__isFooter
 }
 
 function getRenderedHtml(col, row) {
@@ -346,6 +367,21 @@ function compareValues(a, b, direction) {
 
 .at-grid-table tbody tr:hover {
   background: #edf5ff;
+}
+
+.at-grid-footer-row td {
+  padding: 10px 14px;
+  border-top: 1px solid #e0e7ef;
+  color: #1a2744;
+  font-size: 12px;
+  font-weight: 700;
+  background: #f9fbff;
+  vertical-align: middle;
+  word-break: break-word;
+}
+
+.at-grid-footer-row td:first-child {
+  color: #5a6a85;
 }
 
 .at-grid-table tbody td.at-grid-cell-html,

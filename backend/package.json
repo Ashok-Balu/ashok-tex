@@ -13,6 +13,7 @@
     "seed:prod": "cross-env NODE_ENV=production node seed-safe.js --force --allow-prod",
     "db:backup": "cross-env NODE_ENV=production node scripts/backup.js",
     "db:restore": "cross-env NODE_ENV=production node scripts/restore.js",
+    "orders:archive": "cross-env NODE_ENV=production node scripts/archive-orders.js",
     "db:clear": "cross-env NODE_ENV=development node scripts/clear-db.js --force --yes",
     "db:clear:confirm": "cross-env NODE_ENV=development node scripts/clear-db.js --force",
     "db:audit": "cross-env NODE_ENV=development node scripts/db-collections-audit.js",

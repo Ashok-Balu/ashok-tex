@@ -541,20 +541,20 @@
           New Salary Run — {{ selMonthLabel }} {{ selYear }}
         </div>
         <v-card-text class="px-5 pt-5">
-          <v-row class="mb-2">
+          <v-row class="mb-2 run-period-row" dense>
             <v-col cols="12" sm="4">
-              <v-text-field v-model="runForm.periodStart" label="From Date *" type="date" density="compact" variant="outlined" />
+              <v-text-field v-model="runForm.periodStart" label="From Date *" type="date" density="compact" variant="outlined" rounded="lg" hide-details="auto" class="run-period-field" />
             </v-col>
             <v-col cols="12" sm="4">
-              <v-text-field v-model="runForm.periodEnd" label="To Date *" type="date" density="compact" variant="outlined" />
+              <v-text-field v-model="runForm.periodEnd" label="To Date *" type="date" density="compact" variant="outlined" rounded="lg" hide-details="auto" class="run-period-field" />
             </v-col>
             <v-col cols="12" sm="4">
-              <v-text-field v-model="runForm.runTitle" label="Label (e.g. Week 1)" density="compact" variant="outlined" />
+              <v-text-field v-model="runForm.runTitle" label="Label (e.g. Week 1)" density="compact" variant="outlined" rounded="lg" hide-details="auto" class="run-period-field" />
             </v-col>
           </v-row>
 
           <div class="text-subtitle-2 font-weight-bold mb-2">Select Employees</div>
-          <v-table density="compact">
+          <v-table density="compact" class="run-input-table">
             <thead>
               <tr class="bg-grey-lighten-4">
                 <th style="width:44px">
@@ -573,17 +573,17 @@
                 <td class="font-weight-medium">{{ row.name }}</td>
                 <td>
                   <v-text-field v-if="row.selected" v-model.number="row.daysWorked" type="number" min="0"
-                    density="compact" variant="outlined" hide-details style="min-width:80px" />
+                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--xs" />
                   <span v-else class="text-medium-emphasis">—</span>
                 </td>
                 <td>
                   <v-text-field v-if="row.selected" v-model.number="row.wagePerDay" type="number" min="0"
-                    density="compact" variant="outlined" hide-details style="min-width:100px" />
+                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input" />
                   <span v-else class="text-medium-emphasis">—</span>
                 </td>
                 <td>
                   <v-text-field v-if="row.selected" v-model.number="row.deductionPercentage" type="number" min="0" max="100"
-                    density="compact" variant="outlined" hide-details style="min-width:90px" />
+                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--sm" />
                   <span v-else class="text-medium-emphasis">—</span>
                 </td>
                 <td class="text-right font-weight-bold">
@@ -611,20 +611,20 @@
           Edit Salary Run
         </div>
         <v-card-text class="px-5 pt-5">
-          <v-row class="mb-2">
+          <v-row class="mb-2 run-period-row" dense>
             <v-col cols="12" sm="4">
-              <v-text-field v-model="editRunForm.periodStart" label="From Date *" type="date" density="compact" variant="outlined" />
+              <v-text-field v-model="editRunForm.periodStart" label="From Date *" type="date" density="compact" variant="outlined" rounded="lg" hide-details="auto" class="run-period-field" />
             </v-col>
             <v-col cols="12" sm="4">
-              <v-text-field v-model="editRunForm.periodEnd" label="To Date *" type="date" density="compact" variant="outlined" />
+              <v-text-field v-model="editRunForm.periodEnd" label="To Date *" type="date" density="compact" variant="outlined" rounded="lg" hide-details="auto" class="run-period-field" />
             </v-col>
             <v-col cols="12" sm="4">
-              <v-text-field v-model="editRunForm.runTitle" label="Label (e.g. Week 1)" density="compact" variant="outlined" />
+              <v-text-field v-model="editRunForm.runTitle" label="Label (e.g. Week 1)" density="compact" variant="outlined" rounded="lg" hide-details="auto" class="run-period-field" />
             </v-col>
           </v-row>
 
           <div class="text-subtitle-2 font-weight-bold mb-2">Employee Details</div>
-          <v-table density="compact">
+          <v-table density="compact" class="run-input-table">
             <thead>
               <tr class="bg-grey-lighten-4">
                 <th>Name</th>
@@ -639,15 +639,15 @@
                 <td class="font-weight-medium">{{ row.name }}</td>
                 <td>
                   <v-text-field v-model.number="row.daysWorked" type="number" min="0"
-                    density="compact" variant="outlined" hide-details style="min-width:80px" />
+                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--xs" />
                 </td>
                 <td>
                   <v-text-field v-model.number="row.wagePerDay" type="number" min="0"
-                    density="compact" variant="outlined" hide-details style="min-width:100px" />
+                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input" />
                 </td>
                 <td>
                   <v-text-field v-model.number="row.deductionPercentage" type="number" min="0" max="100"
-                    density="compact" variant="outlined" hide-details style="min-width:90px" />
+                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--sm" />
                 </td>
                 <td class="text-right font-weight-bold">₹{{ fmt(calcNet(row)) }}</td>
               </tr>
@@ -1353,6 +1353,331 @@ onMounted(async () => {
   flex-wrap: wrap;
   gap: 14px;
   box-shadow: 0 4px 24px rgba(21,101,192,.22);
+}
+.payroll-hero__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  letter-spacing: -.3px;
+}
+.payroll-hero__sub {
+  font-size: 12px;
+  color: rgba(255,255,255,.72);
+  margin-top: 3px;
+  letter-spacing: .5px;
+}
+.payroll-hero__selectors { display: flex; gap: 10px; }
+
+/* ══ Stat Cards ══════════════════════════════════════════════════════ */
+.stat-card {
+  border-radius: 16px;
+  padding: 18px 18px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.07);
+  transition: transform .18s, box-shadow .18s;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+
+.stat-card__icon {
+  width: 46px; height: 46px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.stat-card__label { font-size: 11.5px; font-weight: 500; opacity: .8; letter-spacing: .3px; margin-bottom: 3px; }
+.stat-card__value { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
+
+.stat-card--blue  { background: linear-gradient(135deg,#e3f0ff,#bbdefb); color: #1565c0; }
+.stat-card--blue  .stat-card__icon { background: #1976d2; color: #fff; }
+.stat-card--red   { background: linear-gradient(135deg,#fff0f0,#ffcdd2); color: #b71c1c; }
+.stat-card--red   .stat-card__icon { background: #e53935; color: #fff; }
+.stat-card--green { background: linear-gradient(135deg,#e8f5e9,#c8e6c9); color: #1b5e20; }
+.stat-card--green .stat-card__icon { background: #388e3c; color: #fff; }
+.stat-card--amber { background: linear-gradient(135deg,#fffde7,#fff9c4); color: #e65100; }
+.stat-card--amber .stat-card__icon { background: #f57c00; color: #fff; }
+
+/* ══ Tabs ════════════════════════════════════════════════════════════ */
+.payroll-tabs-wrap { background: #fff; border-radius: 14px; box-shadow: 0 1px 6px rgba(0,0,0,.07); overflow: hidden; }
+:deep(.payroll-tabs .v-tab) { font-weight: 600; letter-spacing: .2px; text-transform: none; }
+
+/* ══ Border Card ═════════════════════════════════════════════════════ */
+.border-card { border: 1px solid #e8eaf0 !important; background: #fff !important; }
+
+/* ══ Employee Table ══════════════════════════════════════════════════ */
+.emp-avatar {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,#1976d2,#42a5f5);
+  color: #fff;
+  font-weight: 700; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.emp-avatar--md { width: 40px; height: 40px; font-size: 16px; }
+.emp-avatar--red   { background: linear-gradient(135deg,#e53935,#ef9a9a); }
+.emp-avatar--green { background: linear-gradient(135deg,#388e3c,#a5d6a7); }
+
+.deduction-badge {
+  display: inline-block;
+  background: #fff3e0;
+  color: #e65100;
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+:deep(.emp-table thead th) { background: #f7f9fc !important; font-weight: 700; font-size: 12px; letter-spacing: .3px; }
+:deep(.emp-table tbody tr:hover td) { background: #f0f4ff; }
+
+/* ══ View Toggle ═════════════════════════════════════════════════════ */
+.view-toggle {
+  display: inline-flex;
+  background: #eef2f7;
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+}
+.toggle-btn {
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex; align-items: center;
+  transition: background .15s, color .15s;
+}
+.toggle-btn--active { background: #fff; color: #1976d2; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+
+/* ══ Empty State ═════════════════════════════════════════════════════ */
+.empty-state { text-align: center; padding: 40px 20px; }
+.empty-icon-wrap {
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  background: #e8f0fe;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto;
+}
+
+/* ══ Runs Panels ═════════════════════════════════════════════════════ */
+.run-panel {
+  background: #fff !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,.07) !important;
+  border: 1px solid #e8eaf0 !important;
+  margin-bottom: 8px;
+}
+:deep(.run-panel-title) {
+  min-height: 72px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+:deep(.run-panel-title .v-expansion-panel-title__overlay) { display: none; }
+
+.run-title-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 16px;
+  min-width: 0;
+  padding-right: 4px;
+}
+.run-title-left {
+  display: flex; align-items: center; gap: 12px;
+  flex: 1 1 0; min-width: 0; overflow: hidden;
+}
+.run-cal-chip {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: linear-gradient(135deg,#1976d2,#42a5f5);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.run-dates { font-size: 14px; font-weight: 600; color: #212121; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run-sub { font-size: 12px; color: #757575; margin-top: 2px; white-space: nowrap; }
+.run-title-right { display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
+.run-stat { display: flex; flex-direction: column; align-items: flex-end; min-width: 70px; }
+.run-stat-label { font-size: 11px; color: #9e9e9e; line-height: 1.3; }
+.run-stat-value { font-size: 15px; font-weight: 700; color: #212121; white-space: nowrap; }
+.run-net { color: #2e7d32 !important; }
+
+/* ══ Period Table ════════════════════════════════════════════════════ */
+.period-table-wrapper { overflow-x: auto; border-top: 1px solid #e0e0e0; }
+.period-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.period-table th {
+  background: #f0f4ff; padding: 10px 14px;
+  font-weight: 700; color: #3c3c8a; border-bottom: 2px solid #d0d8f0; white-space: nowrap;
+  font-size: 11.5px; letter-spacing: .3px; text-transform: uppercase;
+}
+.period-table td { padding: 10px 14px; border-bottom: 1px solid #eeeeee; white-space: nowrap; }
+.period-table tbody tr:hover td { background: #f0f4ff; }
+.period-table .row-alt td { background: #fafbfc; }
+.period-table .tfoot-row td {
+  background: #e8eaf6; font-weight: 700;
+  border-top: 2px solid #9fa8da; border-bottom: none;
+}
+.c-error  { color: #c62828; }
+.c-success { color: #2e7d32; }
+
+/* ══ Status Badge ════════════════════════════════════════════════════ */
+.status-badge {
+  display: inline-block; padding: 3px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; text-transform: capitalize; letter-spacing: .2px;
+}
+.status-paid    { background: #e8f5e9; color: #1b5e20; }
+.status-partial { background: #fff3e0; color: #e65100; }
+.status-pending { background: #fce4ec; color: #b71c1c; }
+
+/* ══ Payment Cards ═══════════════════════════════════════════════════ */
+.pay-card {
+  border-radius: 16px; background: #fff;
+  border: 2px solid #e8eaf0;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  transition: box-shadow .18s, transform .18s;
+  overflow: hidden;
+}
+.pay-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.1); transform: translateY(-1px); }
+.pay-card--pending { border-top: 4px solid #e53935; }
+.pay-card--settled { border-top: 4px solid #43a047; }
+
+.pay-card__top { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 16px 10px; }
+.pay-card__name { font-weight: 700; font-size: 15px; color: #1a1a2e; }
+
+.pay-status-chip {
+  padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; flex-shrink: 0;
+}
+.pay-status-chip--pending { background: #fce4ec; color: #b71c1c; }
+.pay-status-chip--settled { background: #e8f5e9; color: #1b5e20; }
+
+.pay-card__stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 0 16px 10px; }
+.pay-stat { padding: 6px 4px; }
+.pay-stat__label { font-size: 10.5px; color: #888; letter-spacing: .3px; margin-bottom: 2px; }
+.pay-stat__val { font-size: 14px; font-weight: 700; color: #333; }
+.pay-stat__val--green { color: #2e7d32; }
+.pay-stat__val--red   { color: #c62828; }
+.pay-stat__val--amber { color: #e65100; }
+
+.pay-card__actions {
+  border-top: 1px solid #f0f0f0;
+  padding: 10px 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* ══ Run Total Bar ═══════════════════════════════════════════════════ */
+.run-total-bar {
+  text-align: right; font-size: 14px; color: #444; margin-top: 10px;
+  padding: 8px 0;
+}
+.run-total-bar strong { font-size: 16px; color: #1b5e20; }
+
+/* ══ Run Dialog Inputs ═══════════════════════════════════════════════ */
+.run-period-row { align-items: end; }
+.run-period-field { margin-bottom: 2px; }
+.run-input-table :deep(thead th) {
+  vertical-align: bottom;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  line-height: 1.2;
+}
+.run-input-table :deep(tbody td) { vertical-align: middle; }
+.run-input-table :deep(tbody td) {
+  padding-top: 7px !important;
+  padding-bottom: 7px !important;
+}
+.run-input-table :deep(tbody tr:first-child td) { padding-top: 10px !important; }
+.run-input-table :deep(tbody tr td) { border-bottom: 1px solid #e9edf4; }
+.run-input-table :deep(tbody tr:last-child td) { border-bottom: none; }
+.run-input-table :deep(.v-field) { border-radius: 10px; }
+.run-input-table :deep(.v-field__input) { min-height: 36px; }
+.run-input-table :deep(.v-input) { margin-top: 0; }
+.run-cell-input { min-width: 104px; }
+.run-cell-input--sm { min-width: 92px; }
+.run-cell-input--xs { min-width: 82px; }
+
+/* ══ Payslip Document ════════════════════════════════════════════════ */
+.payslip-doc {
+  border: 1px solid #e0e4ed;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.payslip-doc__header {
+  background: linear-gradient(135deg,#1565c0,#1e88e5);
+  padding: 18px 20px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  color: #fff;
+}
+.payslip-doc__company { font-size: 18px; font-weight: 800; letter-spacing: 1px; }
+.payslip-doc__sub { font-size: 11px; opacity: .75; letter-spacing: 2px; margin-top: 1px; }
+.payslip-doc__badge {
+  background: rgba(255,255,255,.2);
+  padding: 3px 12px; border-radius: 20px;
+  font-size: 12px; font-weight: 700; letter-spacing: 1px;
+}
+.payslip-doc__period { font-size: 12px; opacity: .8; text-align: right; margin-top: 4px; }
+.payslip-doc__emp { padding: 12px 20px; background: #f7f9fc; font-size: 13px; border-bottom: 1px solid #e0e4ed; }
+.payslip-section-title {
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px;
+  color: #1565c0; padding: 14px 20px 6px; background: #fff;
+}
+.payslip-table { font-size: 13px; }
+:deep(.payslip-table thead th) { background: #f0f4ff; color: #3c3c8a; font-weight: 700; font-size: 11px; text-transform: uppercase; }
+:deep(.payslip-table tbody tr:nth-child(even) td) { background: #fafbfc; }
+
+.payslip-summary { padding: 4px 20px 14px; background: #fff; }
+.payslip-summary__row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0; border-bottom: 1px dashed #eee; font-size: 13px;
+}
+.payslip-summary__row:last-child { border-bottom: none; }
+.payslip-summary__label { color: #555; }
+.payslip-summary__val { font-weight: 700; color: #222; }
+.payslip-status {
+  display: flex; align-items: center;
+  margin: 0 20px 18px; padding: 10px 16px;
+  border-radius: 10px; font-size: 13px; font-weight: 700; letter-spacing: .5px;
+}
+.payslip-status--paid    { background: #e8f5e9; color: #1b5e20; }
+.payslip-status--pending { background: #fce4ec; color: #b71c1c; }
+
+/* ══ Dialog Headers ══════════════════════════════════════════════════ */
+.dialog-header {
+  display: flex; align-items: center;
+  padding: 16px 20px; font-size: 15px; font-weight: 700;
+  color: #fff;
+}
+.dialog-header--blue  { background: linear-gradient(135deg,#1565c0,#1976d2); }
+.dialog-header--green { background: linear-gradient(135deg,#2e7d32,#43a047); }
+.dialog-header--amber { background: linear-gradient(135deg,#e65100,#fb8c00); }
+.dialog-header--red   { background: linear-gradient(135deg,#b71c1c,#e53935); }
+
+/* ══ Payment Info Box ════════════════════════════════════════════════ */
+.payment-info-box { background: #f7f9fc; border-radius: 10px; padding: 12px 16px; border: 1px solid #e0e4ed; }
+.payment-info-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 3px 0; color: #444; }
+.payment-info-row--red strong { color: #c62828; }
+.payment-info-row--amber strong { color: #e65100; }
+
+/* ══ History Table ═══════════════════════════════════════════════════ */
+.history-table { font-size: 13px; }
+:deep(.history-table thead th) { background: #f0f4ff; font-weight: 700; font-size: 11px; text-transform: uppercase; color: #3c3c8a; letter-spacing: .3px; }
+:deep(.history-table tbody tr:hover td) { background: #f7f9fc; }
+
+.type-badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.type-badge--green { background: #e8f5e9; color: #2e7d32; }
+.type-badge--amber { background: #fff8e1; color: #e65100; }
+
+@media (max-width: 800px) {
+  .run-cell-input,
+  .run-cell-input--sm,
+  .run-cell-input--xs {
+    min-width: 76px;
+  }
 }
 .payroll-hero__title {
   font-size: 22px;

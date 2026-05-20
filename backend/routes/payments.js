@@ -25,6 +25,9 @@ router.get('/', ah(async (req, res) => {
 router.post('/', ah(async (req, res) => {
   const payload = { ...req.body }
   payload.company = payload.company || payload.companyId
+  if (payload.order) {
+    return res.status(400).json({ message: 'Direct order payment is disabled. Use allocation module.' })
+  }
   const doc = await Payment.create(payload)
   await doc.populate('company', 'name')
   await doc.populate('order', 'orderName deductionPct')
@@ -34,6 +37,9 @@ router.post('/', ah(async (req, res) => {
 router.put('/:id', ah(async (req, res) => {
   const payload = { ...req.body }
   payload.company = payload.company || payload.companyId
+  if (payload.order) {
+    return res.status(400).json({ message: 'Direct order payment is disabled. Use allocation module.' })
+  }
   const doc = await Payment.findByIdAndUpdate(req.params.id, payload, { new: true })
     .populate('company', 'name')
     .populate('order', 'orderName deductionPct')
