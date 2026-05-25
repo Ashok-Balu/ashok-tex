@@ -178,7 +178,7 @@
                   <td><span :class="row.orderState === 'completed' ? 'chip-paid' : 'chip-pending'" style="padding:2px 10px;border-radius:20px;font-size:11px">{{ row.orderState === 'completed' ? t('completed') : t('active') }}</span></td>
                   <td>{{ fmtN(row.expectedQuantity) }}</td>
                   <td>{{ fmtN(row.produced) }}</td>
-                  <td>{{ fmt(row.ratePerMeter) }}</td>
+                  <td>{{ fmtRatePerMeter(row.ratePerMeter) }}</td>
                   <td>{{ fmt(row.totalAmount) }}</td>
                   <td>{{ Number(row.deductionPct || 0).toFixed(2) }}%</td>
                   <td>{{ fmt(row.deductionAmt) }}</td>
@@ -480,6 +480,12 @@ function scenarioTotals(scenario) {
 function fmtSigned(value) {
   const amount = Number(value || 0)
   return amount > 0 ? `+${fmt(amount)}` : amount < 0 ? `-${fmt(Math.abs(amount))}` : fmt(0)
+}
+
+function fmtRatePerMeter(value) {
+  const n = Number(value || 0)
+  if (!Number.isFinite(n)) return '₹0'
+  return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 20 })}`
 }
 
 function formatDateWithDay(value) {

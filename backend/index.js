@@ -9,8 +9,18 @@ const bodyLimit = process.env.BODY_LIMIT || '15mb'
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.CLIENT_URL || '*',
+  origin: (origin, callback) => {
+    const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map(o => o.trim())
+    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      callback(null, true)
+    } else {
+      callback(new Error('CORS not allowed'))
+    }
+  },
   credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  maxAge: 3600,
 }))
 app.use(express.json({ limit: bodyLimit }))
 app.use(express.urlencoded({ extended: true, limit: bodyLimit }))
