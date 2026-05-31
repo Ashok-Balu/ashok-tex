@@ -1,7 +1,7 @@
 {
   "name": "ashok-tex-frontend",
   "version": "1.0.0",
-  "description": "Ashok Tex – Powerloom Management Frontend",
+  "description": "Ashok Tex – Autoloom Management Frontend",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

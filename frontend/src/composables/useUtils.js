@@ -3,9 +3,14 @@ import { useI18n } from 'vue-i18n'
 export function useUtils() {
   const { t } = useI18n()
 
-  const fmt  = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
+  const fmt  = n => '₹' + Math.round(Number(n || 0)).toLocaleString('en-IN')
   const fmtN = n => Number(n || 0).toLocaleString('en-IN')
   const fmtDate = d => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'
+  const fmtDateShort = d => {
+    if (!d) return '-'
+    const dt = new Date(d)
+    return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`
+  }
   const today = () => new Date().toISOString().split('T')[0]
   const pct   = (a, b) => (!b ? 0 : Math.min(100, Math.round((a / b) * 100)))
   const monthStart = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0] }
@@ -75,5 +80,5 @@ export function useUtils() {
     return parts.join(' ') + ' Rupees'
   }
 
-  return { fmt, fmtN, fmtDate, today, pct, monthStart, numToWords, expenseTypes, paymentModes, shifts, departments, t }
+  return { fmt, fmtN, fmtDate, fmtDateShort, today, pct, monthStart, numToWords, expenseTypes, paymentModes, shifts, departments, t }
 }

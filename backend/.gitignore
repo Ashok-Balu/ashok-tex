@@ -1,0 +1,44 @@
+# Environment Variables
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+
+# Node Modules
+node_modules/
+package-lock.json
+yarn.lock
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Database Backups (Keep locally, never commit)
+backups/
+backup/
+*.dump
+*.archive
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Build outputs
+dist/
+build/
+
+# Runtime data
+.cache/
+.env.local.js
