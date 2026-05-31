@@ -1,26 +1,67 @@
 <template>
   <div class="page-container">
     <PageHeader :title="t('dashboard')" :sub="fmtDate(new Date())">
-      <v-btn variant="text" color="primary" prepend-icon="mdi-refresh" @click="load">Refresh</v-btn>
+      <v-btn variant="text" color="primary" prepend-icon="mdi-refresh" @click="load(true)">Refresh</v-btn>
     </PageHeader>
 
-    <v-card rounded="xl" class="at-card insight-hero mb-4">
-      <v-row>
-        <v-col v-for="insight in insights" :key="insight.label" cols="12" md="4">
-          <div class="insight-item" :class="insight.tone">
-            <div class="insight-label">{{ insight.label }}</div>
-            <div class="insight-value">{{ insight.value }}</div>
-            <div class="insight-sub">{{ insight.sub }}</div>
-          </div>
-        </v-col>
-      </v-row>
-    </v-card>
+    <!-- ── Hero Metrics Banner ── -->
+    <div class="dash-hero mb-5">
+      <div class="hero-topline">
+        <div class="hero-pill">
+          <span class="hero-pill-label">Total Companies</span>
+          <strong class="hero-pill-value">{{ companyGlobal.totalCompanies || 0 }}</strong>
+        </div>
+        <div class="hero-pill">
+          <span class="hero-pill-label">Total Payable</span>
+          <strong class="hero-pill-value">{{ fmt(companyGlobal.totalPayable || 0) }}</strong>
+        </div>
+        <div class="hero-pill">
+          <span class="hero-pill-label">Total Paid</span>
+          <strong class="hero-pill-value">{{ fmt(companyGlobal.totalPaid || 0) }}</strong>
+        </div>
+        <div class="hero-pill">
+          <span class="hero-pill-label">Collection Efficiency</span>
+          <strong class="hero-pill-value">{{ collectionPct }}%</strong>
+        </div>
+      </div>
 
-    <v-row class="mb-4">
-      <v-col v-for="s in stats" :key="s.label" cols="12" sm="6" md="4" lg="3">
-        <StatCard v-bind="s" />
-      </v-col>
-    </v-row>
+      <!-- Row 1: primary insight cards -->
+      <div class="dash-insights">
+        <div v-for="insight in insights" :key="insight.label" class="dash-insight-card" :class="insight.tone">
+          <div class="dh-icon-wrap" :class="insight.iconTone">
+            <v-icon size="24" color="white">{{ insight.icon }}</v-icon>
+          </div>
+          <div class="dh-body">
+            <div class="dh-label">{{ insight.label }}</div>
+            <div class="dh-value">{{ insight.value }}</div>
+            <div class="dh-sub">{{ insight.sub }}</div>
+            <div class="dh-kpis">
+              <span>{{ insight.supportA }}</span>
+              <span>{{ insight.supportB }}</span>
+            </div>
+            <div class="dh-progress" v-if="typeof insight.progress === 'number'">
+              <div class="dh-progress-track">
+                <div class="dh-progress-fill" :style="{ width: insight.progress + '%' }"></div>
+              </div>
+              <span class="dh-progress-value">{{ insight.progress }}%</span>
+            </div>
+          </div>
+          <div class="dh-accent" :class="insight.accentClass"></div>
+        </div>
+      </div>
+      <!-- Row 2: stat chips -->
+      <div class="dash-chips">
+        <div v-for="s in stats" :key="s.label" class="dash-chip">
+          <div class="dc-icon-box" :style="{ background: s.chipBg }">
+            <v-icon size="16" color="white">{{ s.icon }}</v-icon>
+          </div>
+          <div>
+            <div class="dc-label">{{ s.label }}</div>
+            <div class="dc-value" :style="{ color: s.chipColor }">{{ s.value }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <v-card rounded="xl" class="at-card mb-4 company-wrap" style="overflow:hidden">
       <div class="company-head">
@@ -30,27 +71,20 @@
               <v-icon size="18" class="mr-2" color="primary">mdi-wallet-membership</v-icon>
               Company Overview
             </div>
-            <div class="company-head-sub">Payments are captured company-wise with cumulative settlement and live pending visibility.</div>
+            <div class="company-head-sub">Payments are tracked company-wise with settlement, unallocated funds, and deduction visibility.</div>
           </div>
-          <div class="company-head-badges">
-            <span class="company-head-badge neutral">{{ companyGlobal.totalCompanies }} Companies</span>
-            <span class="company-head-badge pending">Pending {{ fmt(companyGlobal.totalPending) }}</span>
-            <span class="company-head-badge paid">Paid {{ fmt(companyGlobal.totalPaid) }}</span>
-            <v-btn size="x-small" variant="tonal" color="success" prepend-icon="mdi-plus" class="toggle-all-btn" @click="router.push('/companies?add=1')">Add Company</v-btn>
-            <v-btn size="x-small" variant="tonal" color="primary" class="toggle-all-btn" @click="expandAllCompanies">Expand All</v-btn>
-            <v-btn size="x-small" variant="tonal" color="primary" class="toggle-all-btn" @click="collapseAllCompanies">Collapse All</v-btn>
-          </div>
-        </div>
-        <div class="dashboard-range-bar">
-          <div class="dashboard-range-copy">
-            <div class="dashboard-range-title">Production Period</div>
-            <div class="dashboard-range-sub">Choose a period to see produced quantity and value for only that range.</div>
-          </div>
-          <div class="dashboard-range-controls">
-            <v-text-field v-model="dashboardRange.from" label="From" type="date" density="compact" hide-details="auto" class="dashboard-range-field" variant="outlined" @update:model-value="loadPeriodProduction" />
-            <v-text-field v-model="dashboardRange.to" label="To" type="date" density="compact" hide-details="auto" class="dashboard-range-field" variant="outlined" @update:model-value="loadPeriodProduction" />
-            <v-btn size="small" color="warning" variant="tonal" rounded="lg" class="dashboard-range-reset" @click="resetDashboardRange">Reset</v-btn>
-            <v-btn size="small" color="primary" variant="flat" rounded="lg" class="dashboard-range-apply" :loading="dashboardRangeLoading" @click="loadPeriodProduction">Apply</v-btn>
+          <div class="company-head-side">
+            <div class="company-head-badges">
+              <span class="company-head-badge neutral">{{ companyGlobal.totalCompanies }} Companies</span>
+              <span class="company-head-badge neutral">Total Payable {{ fmt(companyGlobal.totalPayable || 0) }}</span>
+              <span class="company-head-badge paid">Total Paid {{ fmt(companyGlobal.totalPaid || 0) }}</span>
+              <span class="company-head-badge pending">Total Pending {{ fmt(companyGlobal.totalPending || 0) }}</span>
+            </div>
+            <div class="company-head-controls">
+              <v-btn size="small" variant="tonal" color="success" prepend-icon="mdi-plus" class="toggle-all-btn" @click="router.push('/companies?add=1')">Add Company</v-btn>
+              <v-btn size="small" variant="tonal" color="primary" class="toggle-all-btn" @click="expandAllCompanies">Expand All</v-btn>
+              <v-btn size="small" variant="tonal" color="primary" class="toggle-all-btn" @click="collapseAllCompanies">Collapse All</v-btn>
+            </div>
           </div>
         </div>
       </div>
@@ -92,17 +126,45 @@
               </div>
 
               <div class="company-master-metrics">
+                <div class="money-chip payable">
+                  <span>Total Payable</span>
+                  <strong>{{ fmt(company.totalPayableAmount || 0) }}</strong>
+                </div>
                 <div class="money-chip paid">
-                  <span>Paid</span>
+                  <span>Total Paid</span>
                   <strong>{{ fmt(company.totalPaidAmount || 0) }}</strong>
                 </div>
                 <div class="money-chip pending">
-                  <span>Pending</span>
+                  <span>Pending from Company</span>
                   <strong>{{ fmt(company.totalPendingToPay || 0) }}</strong>
                 </div>
                 <div class="money-chip deduction">
-                  <span>Deduction</span>
+                  <span>Deduction to Get</span>
                   <strong>{{ fmt(company.totalDeductionNeedToGet || 0) }}</strong>
+                </div>
+                <div class="money-chip unallocated">
+                  <span>Unallocated funds</span>
+                  <strong>{{ fmt(company.totalUnallocatedAmount || 0) }}</strong>
+                </div>
+                <div class="money-chip meter-lost">
+                  <span>Rejection Meter</span>
+                  <strong>{{ fmtN(company.rejectedMeter || 0) }} m</strong>
+                </div>
+                <div class="money-chip loss">
+                  <span>Rejection Loss</span>
+                  <strong>{{ fmt(company.totalRejectionGrossLoss || 0) }}</strong>
+                </div>
+                <div class="money-chip settle">
+                  <span>Settlement %</span>
+                  <strong>{{ companySettlePct(company) }}%</strong>
+                </div>
+                <div class="money-chip deduction-collected">
+                  <span>Deduction Collected</span>
+                  <strong>{{ fmt(company.totalDeductionCollected || 0) }}</strong>
+                </div>
+                <div class="money-chip avg-rate">
+                  <span>Avg Rate / m</span>
+                  <strong>{{ fmtRounded(companyAvgRate(company)) }}</strong>
                 </div>
               </div>
 
@@ -115,6 +177,22 @@
                     </div>
                     <div class="settle-track">
                       <div class="settle-fill" :class="settleClass(company)" :style="{ width: companySettlePct(company) + '%' }" />
+                    </div>
+                    <div class="settle-sub">
+                      Collected {{ fmt(company.totalPaidAmount || 0) }} / Total {{ fmt(company.totalPayableAmount || 0) }}
+                    </div>
+                  </div>
+
+                  <div class="deduction-wrap">
+                    <div class="deduction-meta">
+                      <span>Deduction Recovery</span>
+                      <span>{{ companyDeductionPct(company) }}%</span>
+                    </div>
+                    <div class="deduction-track">
+                      <div class="deduction-fill" :class="deductionClass(company)" :style="{ width: companyDeductionPct(company) + '%' }" />
+                    </div>
+                    <div class="deduction-sub">
+                      Collected {{ fmt(company.totalDeductionCollected || 0) }} / Total {{ fmt(companyDeductionTotal(company)) }}
                     </div>
                   </div>
 
@@ -131,30 +209,56 @@
                         <tr>
                           <th>Order</th>
                           <th>Order State</th>
-                          <th>Expected Quantity</th>
-                          <th>Produced</th>
+                          <th>Expected meter</th>
+                          <th>Produced meter</th>
+                          <th>Rejected meter</th>
+                          <th>Accepted meter</th>
                           <th>Rate/m</th>
                           <th>Total Amount</th>
                           <th>Deduction %</th>
                           <th>Deduction Amt</th>
+                          <th>Rejection Loss</th>
                           <th>Payable Amount</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr v-for="row in company.orders" :key="row._id" @click="goToOrderDetail(row)">
-                          <td>{{ row.orderName }}</td>
+                          <td class="company-order-name-cell">
+                            <a :href="getOrderDetailHref(row)" class="company-order-link" @click.stop>
+                              {{ row.orderName }}
+                            </a>
+                          </td>
                           <td>
-                            <span :class="['state-pill', orderExecutionState(row).tone]">{{ orderExecutionState(row).label }}</span>
+                            <span :class="['state-pill', row.executionState.tone]">{{ row.executionState.label }}</span>
                           </td>
                           <td>{{ fmtN(row.expectedMeter || 0) }} m</td>
+                          <td>{{ fmtN(Number(row.periodProducedMeter || 0) + Number(row.periodRejectedMeter || 0)) }} m</td>
+                          <td>{{ fmtN(row.periodRejectedMeter || 0) }} m</td>
                           <td>{{ fmtN(row.periodProducedMeter || 0) }} m</td>
-                          <td>{{ fmtRounded(row.ratePerMeter || 0) }}</td>
+                          <td>{{ fmtRatePerMeter(row.ratePerMeter || 0) }}</td>
                           <td>{{ fmtRounded(row.periodTotalValue || 0) }}</td>
                           <td>{{ Number(row.deductionPct || 0).toFixed(2) }}%</td>
                           <td>{{ fmtRounded(row.periodDeductionAmt || 0) }}</td>
+                          <td>{{ fmtRounded(row.periodRejectionGrossLoss || 0) }}</td>
                           <td>{{ fmtRounded(row.periodPayableAmt || 0) }}</td>
                         </tr>
                       </tbody>
+                      <tfoot>
+                        <tr class="company-order-total-row">
+                          <td>Total</td>
+                          <td>-</td>
+                          <td>{{ fmtN(company.orderTotals.expectedMeter) }} m</td>
+                          <td>{{ fmtN(company.orderTotals.producedMeter) }} m</td>
+                          <td>{{ fmtN(company.orderTotals.rejectedMeter) }} m</td>
+                          <td>{{ fmtN(company.orderTotals.acceptedMeter) }} m</td>
+                          <td>-</td>
+                          <td>{{ fmtRounded(company.orderTotals.totalAmount) }}</td>
+                          <td>-</td>
+                          <td>{{ fmtRounded(company.orderTotals.deductionAmount) }}</td>
+                          <td>{{ fmtRounded(company.orderTotals.rejectionLoss) }}</td>
+                          <td>{{ fmtRounded(company.orderTotals.payableAmount) }}</td>
+                        </tr>
+                      </tfoot>
                     </table>
                     <div v-else class="company-empty">{{ t('noData') }}</div>
                   </div>
@@ -167,27 +271,36 @@
       <div v-else class="text-center pa-6" style="color:#5A6A85">{{ t('noData') }}</div>
     </v-card>
 
-    <v-row>
-      <v-col cols="12" lg="8">
-        <v-card rounded="lg" class="at-card" style="overflow:hidden">
-          <div class="d-flex align-center justify-space-between px-4 py-3" style="border-bottom:1px solid #E0E7EF">
-            <span class="font-weight-bold" style="font-size:14px">{{ t('recentOrders') }}</span>
-            <v-btn variant="text" color="primary" size="small" to="/orders" append-icon="mdi-arrow-right">{{ t('orders') }}</v-btn>
-          </div>
-          <AgTable :rowData="recentOrders" :columnDefs="orderCols" height="320px" :pagination="false" />
-        </v-card>
-      </v-col>
-
-    </v-row>
+    <v-card rounded="xl" class="at-card mb-4" style="overflow:hidden">
+      <div class="d-flex align-center justify-space-between px-4 py-3" style="border-bottom:1px solid #E0E7EF">
+        <div>
+          <span class="font-weight-bold" style="font-size:15px">{{ t('recentOrders') }}</span>
+          <span class="text-caption text-medium-emphasis ml-2">Last {{ recentOrders.length }} orders</span>
+        </div>
+        <v-btn variant="tonal" color="primary" size="small" to="/orders" append-icon="mdi-arrow-right">View All Orders</v-btn>
+      </div>
+      <AgTable :rowData="recentOrders" :columnDefs="orderCols" height="380px" :pagination="false" />
+    </v-card>
 
     <v-dialog v-model="companyPaymentsDialog" max-width="1100">
       <v-card rounded="xl" class="company-payment-dialog">
         <div class="d-flex align-center justify-space-between px-5 py-4 company-dialog-top">
           <div>
-            <div class="company-dialog-title">{{ selectedCompany?.companyName || t('company') }} - Company Payment</div>
-            <div class="company-dialog-sub">Cumulative collection and settlement</div>
+            <div class="company-dialog-title">{{ selectedCompany?.companyName || t('company') }} - Company Receipt</div>
+            <div class="company-dialog-sub">Enter company-level receipts here. Allocate them to orders separately.</div>
           </div>
-          <v-btn icon variant="text" @click="companyPaymentsDialog = false"><v-icon>mdi-close</v-icon></v-btn>
+          <div class="d-flex align-center" style="gap:8px">
+            <v-btn
+              color="primary"
+              variant="tonal"
+              prepend-icon="mdi-call-split"
+              :disabled="!selectedCompany?.companyId || selectedCompany?.companyId === 'unknown'"
+              @click="openAllocatePayments"
+            >
+              Allocate Payment
+            </v-btn>
+            <v-btn icon variant="text" @click="companyPaymentsDialog = false"><v-icon>mdi-close</v-icon></v-btn>
+          </div>
         </div>
 
         <div class="px-5 py-4" style="border-bottom:1px solid #E0E7EF">
@@ -201,18 +314,21 @@
             <v-col cols="12" sm="3">
               <v-btn color="primary" variant="flat" block :loading="companyPaymentLoading" @click="loadCompanyPayments">{{ t('filter') }}</v-btn>
             </v-col>
+            <v-col cols="12" sm="3">
+              <v-btn variant="tonal" color="secondary" block :disabled="companyPaymentLoading" @click="clearCompanyPaymentFilter">Clear</v-btn>
+            </v-col>
           </v-row>
 
           <v-row class="mt-2">
-            <v-col cols="6" md="3"><div class="summary-card paid"><div>Total Paid</div><strong>{{ fmt(companyPaymentSummary.totalPaidAmount || 0) }}</strong></div></v-col>
-            <v-col cols="6" md="3"><div class="summary-card pending"><div>Pending to Pay</div><strong>{{ fmt(companyPaymentSummary.totalPendingToPay || 0) }}</strong></div></v-col>
-            <v-col cols="6" md="3"><div class="summary-card deduction"><div>Deduction to Get</div><strong>{{ fmt(companyPaymentSummary.totalDeductionNeedToGet || 0) }}</strong></div></v-col>
-            <v-col cols="6" md="3"><div class="summary-card payable"><div>Total Payable</div><strong>{{ fmt(companyPaymentSummary.totalPayableAmount || 0) }}</strong></div></v-col>
+            <v-col v-for="card in companyPaymentCards" :key="card.label" cols="6" md="3">
+              <div class="summary-card" :class="card.tone"><div>{{ card.label }}</div><strong>{{ card.value }}</strong></div>
+            </v-col>
           </v-row>
         </div>
 
         <div class="px-5 py-4" style="border-bottom:1px solid #E0E7EF">
-          <div class="font-weight-bold mb-2" style="font-size:13px">{{ editingPaymentId ? 'Edit Company Payment / Deduction' : 'Add Company Payment / Deduction' }}</div>
+          <div class="font-weight-bold mb-2" style="font-size:13px">{{ editingPaymentId ? 'Edit Company Receipt / Deduction' : 'Add Company Receipt / Deduction' }}</div>
+          <div style="font-size:12px;color:#5A6A85" class="mb-3">Payment entries create unallocated company balance. Use Allocate Payment to split receipts across open orders.</div>
           <v-row dense align="end">
             <v-col cols="12" sm="2">
               <v-select
@@ -267,20 +383,26 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useOrderStore, useDashboardStore } from '@/stores/index'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '@/plugins/axios'
 import { useUtils } from '@/composables/useUtils'
 import { useNotify } from '@/composables/useNotify'
 import { useConfirm } from '@/composables/useConfirm'
-import StatCard from '@/components/common/StatCard.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import AgTable from '@/components/common/AgTable.vue'
 
 const { t } = useI18n()
-const { fmt, fmtN, fmtDate, monthStart, today, paymentModes, numToWords } = useUtils()
+const { fmt, fmtN, fmtDate, today, paymentModes, numToWords } = useUtils()
 const notify = useNotify()
 const { confirm } = useConfirm()
+const route = useRoute()
 const router = useRouter()
+
+function fmtRatePerMeter(value) {
+  const n = Number(value || 0)
+  if (!Number.isFinite(n)) return '₹0'
+  return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 20 })}`
+}
 
 const orderStore = useOrderStore()
 const dashboardStore = useDashboardStore()
@@ -289,164 +411,297 @@ const companyPaymentsDialog = ref(false)
 const companyPaymentLoading = ref(false)
 const companyPaymentSaving = ref(false)
 const selectedCompany = ref(null)
-const companyPaymentFilter = ref({ from: monthStart(), to: today() })
+function defaultCompanyPaymentFilter() {
+  return {
+    from: '',
+    to: '',
+  }
+}
+
+const companyPaymentFilter = ref(defaultCompanyPaymentFilter())
 const companyPaymentRows = ref([])
 const companyPaymentSummary = ref({
   totalPaidAmount: 0,
+  totalReceiptAmount: 0,
+  totalUnallocatedAmount: 0,
   totalPendingToPay: 0,
   totalDeductionNeedToGet: 0,
+  totalDeductionCollected: 0,
   totalPayableAmount: 0,
 })
-const companyPaymentForm = ref({ transactionType: 'payment', date: today(), amount: null, mode: 'cash', notes: '' })
+function defaultCompanyPaymentForm() {
+  return { transactionType: 'payment', date: today(), amount: null, mode: 'bank', notes: '' }
+}
+
+const companyPaymentForm = ref(defaultCompanyPaymentForm())
 const editingPaymentId = ref(null)
 const paymentAmountInWords = computed(() => numToWords(companyPaymentForm.value.amount))
+const companyPaymentCards = computed(() => [
+  { label: 'Total Payable', value: fmt(companyPaymentSummary.value.totalPayableAmount || 0), tone: 'payable' },
+  { label: 'Total Paid', value: fmt(companyPaymentSummary.value.totalReceiptAmount || 0), tone: 'paid' },
+  { label: 'Pending from Company', value: fmt(companyPaymentSummary.value.totalPendingToPay || 0), tone: 'pending' },
+  { label: 'Deduction to Get', value: fmt(companyPaymentSummary.value.totalDeductionNeedToGet || 0), tone: 'deduction' },
+  { label: 'Total Allocated', value: fmt(companyPaymentSummary.value.totalPaidAmount || 0), tone: 'paid' },
+  { label: 'Unallocated funds', value: fmt(companyPaymentSummary.value.totalUnallocatedAmount || 0), tone: '' },
+  { label: 'Rejection Meter', value: `${fmtN(selectedCompany.value?.rejectedMeter || 0)} m`, tone: 'meter-lost' },
+  { label: 'Rejection Loss', value: fmt(selectedCompany.value?.totalRejectionGrossLoss || 0), tone: 'loss' },
+])
 const transactionTypeItems = [
   { title: 'Payment', value: 'payment' },
   { title: 'Deduction', value: 'deduction' },
 ]
-const dashboardRange = ref({ from: monthStart(), to: today() })
-const dashboardRangeLoading = ref(false)
-const periodProductionRows = ref([])
+
 const expandedCompanyIds = ref([])
 const expandedInitialized = ref(false)
+let pendingDashboardUiState = null
+
+function readDashboardUiStateFromQuery() {
+  const stateKey = String(route.query.drs || '').trim()
+  if (!stateKey) {
+    pendingDashboardUiState = null
+    return
+  }
+
+  try {
+    const raw = sessionStorage.getItem(stateKey)
+    if (!raw) {
+      pendingDashboardUiState = null
+      return
+    }
+    pendingDashboardUiState = JSON.parse(raw)
+  } catch {
+    pendingDashboardUiState = null
+  }
+}
+
+function createDashboardUiSnapshot() {
+  const snapshot = {
+    expandedCompanyIds: [...expandedCompanyIds.value],
+    pageScrollY: Number(window.scrollY || window.pageYOffset || 0),
+  }
+  const key = `dashboard-ui-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  try {
+    sessionStorage.setItem(key, JSON.stringify(snapshot))
+  } catch {
+    return ''
+  }
+  return key
+}
+
+function applyPendingDashboardUiState() {
+  if (!pendingDashboardUiState) return
+
+  const companyIds = companyGroups.value.map(row => row.companyId)
+  if (Array.isArray(pendingDashboardUiState.expandedCompanyIds)) {
+    expandedCompanyIds.value = pendingDashboardUiState.expandedCompanyIds.filter(id => companyIds.includes(id))
+  }
+
+  const pageScrollY = Number(pendingDashboardUiState.pageScrollY || 0)
+  requestAnimationFrame(() => {
+    if (pageScrollY > 0) window.scrollTo({ top: pageScrollY, behavior: 'auto' })
+  })
+
+  pendingDashboardUiState = null
+}
 
 const dashboardStats = computed(() => dashboardStore.stats || {})
+const totalExpectedMeter = computed(() => Number(dashboardStats.value.companyOrderSummary?.reduce((s, c) => s + Number(c.expectedMeter || 0), 0) || 0))
+const totalProducedMeter = computed(() => Number(dashboardStats.value.companyOrderSummary?.reduce((s, c) => s + Number(c.producedMeter || 0), 0) || 0))
+const totalPendingAmount = computed(() => Number(dashboardStats.value.pendingAmount || 0))
+const totalPayableAmount = computed(() => Number(dashboardStats.value.companyOrderSummary?.reduce((s, c) => s + Number(c.totalPayableAmount || 0), 0) || 0))
+const totalPaidAmount = computed(() => Number(dashboardStats.value.companyOrderSummary?.reduce((s, c) => s + Number(c.totalPaidAmount || 0), 0) || 0))
+const collectionPct = computed(() => {
+  if (totalPayableAmount.value <= 0) return 0
+  return Math.max(0, Math.min(100, Math.round((totalPaidAmount.value / totalPayableAmount.value) * 1000) / 10))
+})
+
 const insights = computed(() => [
   {
-    label: 'Expected vs Produced',
-    value: fmtN(dashboardStats.value.companyOrderSummary?.reduce((s, c) => s + Number(c.producedMeter || 0), 0) || 0) + ' m',
-    sub: 'out of ' + fmtN(dashboardStats.value.companyOrderSummary?.reduce((s, c) => s + Number(c.expectedMeter || 0), 0) || 0) + ' m',
-    tone: 'tone-info',
+    label: 'Production Output',
+    value: fmtN(totalProducedMeter.value) + ' m',
+    sub: 'against target ' + fmtN(totalExpectedMeter.value) + ' m',
+    supportA: 'Remaining ' + fmtN(Math.max(0, totalExpectedMeter.value - totalProducedMeter.value)) + ' m',
+    supportB: 'Lost ' + fmtN(dashboardStats.value.totalRejectedMeter || 0) + ' m',
+    progress: globalProductionPct.value,
+    tone: 'tone-blue', iconTone: 'icon-blue', icon: 'mdi-factory', accentClass: 'accent-blue',
   },
   {
     label: 'Pending Collection',
-    value: fmt(dashboardStats.value.pendingAmount || 0),
+    value: fmt(totalPendingAmount.value),
     sub: (dashboardStats.value.pendingPaymentCount || 0) + ' companies require follow up',
-    tone: 'tone-warn',
+    supportA: 'Payable ' + fmt(totalPayableAmount.value),
+    supportB: 'Collected ' + collectionPct.value + '%',
+    progress: collectionPct.value,
+    tone: 'tone-orange', iconTone: 'icon-orange', icon: 'mdi-clock-alert-outline', accentClass: 'accent-orange',
   },
   {
-    label: 'Monthly Outflow',
-    value: fmt(dashboardStats.value.monthExpense || 0),
-    sub: 'expense in current cycle',
-    tone: 'tone-good',
+    label: 'Monthly Receipt',
+    value: fmt(dashboardStats.value.monthlyReceipt || 0),
+    sub: 'received this month',
+    supportA: 'Total paid ' + fmt(totalPaidAmount.value),
+    supportB: 'Unallocated ' + fmt(companyGlobal.value.totalUnallocated || 0),
+    progress: totalPayableAmount.value > 0 ? Math.max(0, Math.min(100, Math.round(((dashboardStats.value.monthlyReceipt || 0) / totalPayableAmount.value) * 1000) / 10)) : 0,
+    tone: 'tone-green', iconTone: 'icon-green', icon: 'mdi-trending-up', accentClass: 'accent-green',
+  },
+  {
+    label: 'Deduction Balance',
+    value: fmt(dashboardStats.value.deductionHoldAmount || 0),
+    sub: 'deduction still to collect',
+    supportA: 'Collected ' + fmt(dashboardStats.value.companyOrderSummary?.reduce((s, c) => s + Number(c.totalDeductionCollected || 0), 0) || 0),
+    supportB: 'Rejection loss ' + fmt(dashboardStats.value.totalRejectionGrossLoss || 0),
+    progress: (() => {
+      const totalNeed = Number((dashboardStats.value.companyOrderSummary || []).reduce((s, c) => s + Number(c.totalDeductionNeedToGet || 0) + Number(c.totalDeductionCollected || 0), 0))
+      const collected = Number((dashboardStats.value.companyOrderSummary || []).reduce((s, c) => s + Number(c.totalDeductionCollected || 0), 0))
+      if (totalNeed <= 0) return 0
+      return Math.max(0, Math.min(100, Math.round((collected / totalNeed) * 1000) / 10))
+    })(),
+    tone: 'tone-violet', iconTone: 'icon-violet', icon: 'mdi-hand-coin-outline', accentClass: 'accent-violet',
   },
 ])
 
+const globalProductionPct = computed(() => {
+  const expected = Number(dashboardStats.value.companyOrderSummary?.reduce((sum, row) => sum + Number(row.expectedMeter || 0), 0) || 0)
+  const produced = Number(dashboardStats.value.companyOrderSummary?.reduce((sum, row) => sum + Number(row.producedMeter || 0), 0) || 0)
+  if (expected <= 0) return 0
+  return Math.max(0, Math.min(100, Math.round((produced / expected) * 100)))
+})
+
 const stats = computed(() => [
-  {
-    icon: 'mdi-factory',
-    iconColor: 'white',
-    iconBg: '#1565C0',
-    label: t('todayProduction'),
-    value: fmtN(dashboardStats.value.todayProduction || 0) + ' m',
-    sub: (dashboardStats.value.activeMachines || 16) + ' ' + t('machines'),
-  },
-  {
-    icon: 'mdi-package-variant',
-    iconColor: 'white',
-    iconBg: '#00897B',
-    label: t('activeOrders'),
-    value: dashboardStats.value.activeOrders || 0,
-    sub: (dashboardStats.value.completedOrders || 0) + ' ' + t('completedOrders'),
-  },
-  {
-    icon: 'mdi-wallet-outline',
-    iconColor: 'white',
-    iconBg: '#E65100',
-    label: 'Company Pending',
-    value: fmt(dashboardStats.value.pendingAmount || 0),
-    sub: `${dashboardStats.value.pendingPaymentCount || 0} companies`,
-  },
-  {
-    icon: 'mdi-cash-check',
-    iconColor: 'white',
-    iconBg: '#2E7D32',
-    label: 'Company Paid',
-    value: dashboardStats.value.completedPaymentCount || 0,
-    sub: 'fully settled',
-  },
-  {
-    icon: 'mdi-hand-coin',
-    iconColor: 'white',
-    iconBg: '#6D4C41',
-    label: 'Deduction to Get',
-    value: fmt(dashboardStats.value.deductionHoldAmount || 0),
-    sub: t('company'),
-  },
-  {
-    icon: 'mdi-cash-minus',
-    iconColor: 'white',
-    iconBg: '#C62828',
-    label: t('totalExpense'),
-    value: fmt(dashboardStats.value.monthExpense || 0),
-    sub: 'this month',
-  },
-  {
-    icon: 'mdi-trending-up',
-    iconColor: 'white',
-    iconBg: '#2E7D32',
-    label: t('monthlyPayment'),
-    value: fmt(dashboardStats.value.monthlyReceipt || 0),
-    sub: 'received',
-  },
+  { icon: 'mdi-package-variant',   label: t('activeOrders'),     value: dashboardStats.value.activeOrders || 0,                  chipColor: '#00897B', chipBg: '#00897B' },
+  { icon: 'mdi-check-circle',      label: 'Completed Orders',    value: dashboardStats.value.completedOrders || 0,               chipColor: '#2E7D32', chipBg: '#2E7D32' },
+  { icon: 'mdi-factory',           label: t('todayProduction'),  value: fmtN(dashboardStats.value.todayProduction || 0) + ' m',  chipColor: '#1565C0', chipBg: '#1565C0' },
+  { icon: 'mdi-percent',           label: 'Production Progress', value: globalProductionPct.value + '%',                         chipColor: '#5C6BC0', chipBg: '#5C6BC0' },
+  { icon: 'mdi-close-octagon',     label: 'Meter Lost',          value: fmtN(dashboardStats.value.totalRejectedMeter || 0) + ' m', chipColor: '#BF360C', chipBg: '#BF360C' },
+  { icon: 'mdi-cash-remove',       label: 'Rejection Loss',      value: fmt(dashboardStats.value.totalRejectionGrossLoss || 0), chipColor: '#0D47A1', chipBg: '#0D47A1' },
+  { icon: 'mdi-wallet-outline',    label: 'Unallocated funds',   value: fmt(companyGlobal.value.totalUnallocated || 0),          chipColor: '#1565C0', chipBg: '#1565C0' },
+  { icon: 'mdi-hand-coin',         label: 'Deduction to Get',    value: fmt(dashboardStats.value.deductionHoldAmount || 0),      chipColor: '#6D4C41', chipBg: '#6D4C41' },
 ])
 
 function orderSortTs(order) {
-  return new Date(order?.createdAt || order?.date || order?.startDate || 0).getTime() || 0
+  return new Date(order?.startDate || order?.createdAt || 0).getTime() || 0
+}
+
+function objectIdToTs(id) {
+  const raw = String(id || '')
+  const hex = raw.slice(0, 8)
+  return /^[0-9a-fA-F]{8}$/.test(hex) ? parseInt(hex, 16) * 1000 : 0
+}
+
+function orderChangedTs(order) {
+  const updatedTs = new Date(order?.updatedAt || 0).getTime()
+  if (Number.isFinite(updatedTs) && updatedTs > 0) return updatedTs
+  const createdAtTs = new Date(order?.createdAt || 0).getTime()
+  if (Number.isFinite(createdAtTs) && createdAtTs > 0) return createdAtTs
+  return objectIdToTs(order?._id)
+}
+
+function orderStageRank(order) {
+  if (order?.status === 'completed') return 2 // Completed last
+  const acceptedMeter = Number(order?.acceptedMeter ?? Math.max(0, Number(order?.producedMeter || 0) - Number(order?.rejectedMeter || 0)))
+  if (acceptedMeter <= 0) return 0 // Yet to Start first
+  return 1 // In Progress middle
+}
+
+function compareCompanyOrders(a, b) {
+  const rankA = orderStageRank(a)
+  const rankB = orderStageRank(b)
+  if (rankA !== rankB) return rankA - rankB
+
+  // In Progress & Completed: most recently updated first.
+  if (rankA === 1 || rankA === 2) {
+    const changedDelta = orderChangedTs(b) - orderChangedTs(a)
+    if (changedDelta !== 0) return changedDelta
+  }
+
+  const sortDelta = orderSortTs(b) - orderSortTs(a)
+  if (sortDelta !== 0) return sortDelta
+  return orderChangedTs(b) - orderChangedTs(a)
+}
+
+function latestCompanyOrderTs(orders = []) {
+  if (!orders.length) return 0
+  return Math.max(...orders.map(order => orderChangedTs(order)), 0)
 }
 
 const recentOrders = computed(() => [...(orderStore.items || [])]
   .sort((a, b) => orderSortTs(b) - orderSortTs(a))
-  .slice(0, 8))
+  .slice(0, 20))
 
 const companyGroups = computed(() => {
   const summaryRows = dashboardStats.value.companyOrderSummary || []
-  const producedMap = new Map()
-  for (const row of periodProductionRows.value) {
-    const orderId = row?.order?._id || row?.order
-    if (!orderId) continue
-    producedMap.set(String(orderId), (producedMap.get(String(orderId)) || 0) + Number(row.meter || 0))
-  }
   const orderMap = new Map()
 
   for (const order of orderStore.items) {
     const companyId = order?.company?._id || 'unknown'
-    const periodProducedMeter = Number(producedMap.get(String(order?._id)) || 0)
     if (!orderMap.has(companyId)) orderMap.set(companyId, [])
-    const periodTotalValue = periodProducedMeter * Number(order.ratePerMeter || 0)
-    const periodDeductionAmt = periodTotalValue * (Number(order.deductionPct || 0) / 100)
-    const periodPayableAmt = periodTotalValue - periodDeductionAmt
+    const acceptedMeter = Number(order.acceptedMeter ?? Math.max(0, Number(order.producedMeter || 0) - Number(order.rejectedMeter || 0)))
+    const rejectedMeter = Number(order.rejectedMeter || Math.max(0, Number(order.producedMeter || 0) - acceptedMeter))
+    const ratePerMeter = Number(order.ratePerMeter || 0)
+    const deductionPct = Number(order.deductionPct || 0)
+    const totalValue = acceptedMeter * ratePerMeter
+    const deductionAmt = totalValue * (deductionPct / 100)
+    const rejectionGrossLoss = rejectedMeter * ratePerMeter
+    const rejectionDeductionLoss = rejectionGrossLoss * (deductionPct / 100)
+    const rejectionNetLoss = rejectionGrossLoss - rejectionDeductionLoss
     orderMap.get(companyId).push({
       ...order,
-      periodProducedMeter,
-      periodTotalValue,
-      periodDeductionAmt,
-      periodPayableAmt,
+      executionState: orderExecutionState(order),
+      periodProducedMeter: acceptedMeter,
+      periodRejectedMeter: rejectedMeter,
+      periodTotalValue:    totalValue,
+      periodDeductionAmt:  deductionAmt,
+      periodPayableAmt:    totalValue - deductionAmt,
+      periodRejectionGrossLoss: rejectionGrossLoss,
+      periodRejectionDeductionLoss: rejectionDeductionLoss,
+      periodRejectionNetLoss: rejectionNetLoss,
     })
   }
 
   return summaryRows.map(row => ({
     ...row,
-    periodProducedMeter: (orderMap.get(row.companyId) || []).reduce((sum, order) => sum + Number(order.periodProducedMeter || 0), 0),
-    orders: [...(orderMap.get(row.companyId) || [])].sort((a, b) => orderSortTs(b) - orderSortTs(a)),
-  })).sort((a, b) => new Date(b.lastActivityAt || 0).getTime() - new Date(a.lastActivityAt || 0).getTime())
+    periodProducedMeter: (orderMap.get(row.companyId) || []).reduce((sum, o) => sum + Number(o.periodProducedMeter || 0), 0),
+    orders: [...(orderMap.get(row.companyId) || [])].sort(compareCompanyOrders),
+    orderTotals: companyOrderTotals({ orders: orderMap.get(row.companyId) || [] }),
+  })).sort((a, b) => {
+    const latestOrderA = latestCompanyOrderTs(a.orders)
+    const latestOrderB = latestCompanyOrderTs(b.orders)
+    if (latestOrderA !== latestOrderB) return latestOrderB - latestOrderA
+    return new Date(b.lastActivityAt || 0).getTime() - new Date(a.lastActivityAt || 0).getTime()
+  })
 })
 
 const companyGlobal = computed(() => companyGroups.value.reduce((acc, row) => {
   acc.totalCompanies += 1
   acc.totalPending += Number(row.totalPendingToPay || 0)
   acc.totalPaid += Number(row.totalPaidAmount || 0)
+  acc.totalUnallocated += Number(row.totalUnallocatedAmount || 0)
+  acc.totalDeduction += Number(row.totalDeductionNeedToGet || 0)
+  acc.totalPayable += Number(row.totalPayableAmount || 0)
   return acc
-}, { totalCompanies: 0, totalPending: 0, totalPaid: 0 }))
+}, { totalCompanies: 0, totalPending: 0, totalPaid: 0, totalUnallocated: 0, totalDeduction: 0, totalPayable: 0 }))
 
 watch(companyGroups, (rows) => {
   const ids = rows.map(row => row.companyId)
   if (!expandedInitialized.value) {
     expandedCompanyIds.value = [...ids]
     expandedInitialized.value = true
-    return
+  } else {
+    expandedCompanyIds.value = expandedCompanyIds.value.filter(id => ids.includes(id))
   }
-  expandedCompanyIds.value = expandedCompanyIds.value.filter(id => ids.includes(id))
+  applyPendingDashboardUiState()
+}, { immediate: true })
+
+watch([companyGroups, () => route.query.expandCompany], () => {
+  const expandCompany = String(route.query.expandCompany || '').trim()
+  if (!expandCompany) return
+  if (!companyGroups.value.some(row => row.companyId === expandCompany)) return
+  if (expandedCompanyIds.value.includes(expandCompany)) return
+  expandedCompanyIds.value = [...expandedCompanyIds.value, expandCompany]
+}, { immediate: true })
+
+watch(() => route.query.drs, () => {
+  readDashboardUiStateFromQuery()
+  applyPendingDashboardUiState()
 }, { immediate: true })
 
 function isCompanyExpanded(companyId) {
@@ -473,7 +728,7 @@ function companySettlePct(company) {
   const payable = Number(company?.totalPayableAmount || 0)
   const paid = Number(company?.totalPaidAmount || 0)
   if (payable <= 0) return 0
-  return Math.max(0, Math.min(100, Math.round((paid / payable) * 100)))
+  return Math.max(0, Math.min(100, Math.round((paid / payable) * 1000) / 10))
 }
 
 function settleClass(company) {
@@ -483,10 +738,70 @@ function settleClass(company) {
   return 'is-low'
 }
 
+function companyDeductionTotal(company) {
+  return Number(company?.totalDeductionNeedToGet || 0) + Number(company?.totalDeductionCollected || 0)
+}
+
+function companyAvgRate(company) {
+  const accepted = Number(company?.producedMeter || 0)
+  if (accepted <= 0) return 0
+  return Number(company?.totalProducedValue || 0) / accepted
+}
+
+function companyDeductionPct(company) {
+  const total = companyDeductionTotal(company)
+  const collected = Number(company?.totalDeductionCollected || 0)
+  if (total <= 0) return 0
+  return Math.max(0, Math.min(100, Math.round((collected / total) * 1000) / 10))
+}
+
+function deductionClass(company) {
+  const pct = companyDeductionPct(company)
+  if (pct >= 80) return 'is-good'
+  if (pct >= 40) return 'is-mid'
+  return 'is-low'
+}
+
 function orderExecutionState(row) {
   if (row?.status === 'completed') return { label: 'Completed', tone: 'good' }
-  if (Number(row?.periodProducedMeter || 0) <= 0) return { label: 'Yet to Start', tone: 'neutral' }
-  return { label: 'In Process', tone: 'info' }
+  const acceptedMeter = Number(row?.acceptedMeter ?? Math.max(0, Number(row?.producedMeter || 0) - Number(row?.rejectedMeter || 0)))
+  if (acceptedMeter <= 0) return { label: 'Yet to Start', tone: 'neutral' }
+  return { label: 'In Progress', tone: 'info' }
+}
+
+function companyOrderTotals(company) {
+  const rows = company?.orders || []
+  const totals = rows.reduce((acc, row) => {
+    const expectedMeter = Number(row?.expectedMeter || 0)
+    const acceptedMeter = Number(row?.periodProducedMeter || 0)
+    const rejectedMeter = Number(row?.periodRejectedMeter || 0)
+    const producedMeter = acceptedMeter + rejectedMeter
+    const totalAmount = Number(row?.periodTotalValue || 0)
+    const deductionAmount = Number(row?.periodDeductionAmt || 0)
+    const rejectionLoss = Number(row?.periodRejectionGrossLoss || 0)
+    const payableAmount = Number(row?.periodPayableAmt || 0)
+
+    acc.expectedMeter += expectedMeter
+    acc.producedMeter += producedMeter
+    acc.rejectedMeter += rejectedMeter
+    acc.acceptedMeter += acceptedMeter
+    acc.totalAmount += totalAmount
+    acc.deductionAmount += deductionAmount
+    acc.rejectionLoss += rejectionLoss
+    acc.payableAmount += payableAmount
+    return acc
+  }, {
+    expectedMeter: 0,
+    producedMeter: 0,
+    rejectedMeter: 0,
+    acceptedMeter: 0,
+    totalAmount: 0,
+    deductionAmount: 0,
+    rejectionLoss: 0,
+    payableAmount: 0,
+  })
+
+  return totals
 }
 
 function fmtRounded(value) {
@@ -551,23 +866,32 @@ async function loadCompanyPayments() {
 
   companyPaymentLoading.value = true
   try {
+    const params = {}
+    if (companyPaymentFilter.value.from) params.from = companyPaymentFilter.value.from
+    if (companyPaymentFilter.value.to) params.to = companyPaymentFilter.value.to
+
     const { data } = await api.get(`/dashboard/company-payments/${selectedCompany.value.companyId}`, {
-      params: {
-        from: companyPaymentFilter.value.from,
-        to: companyPaymentFilter.value.to,
-      },
+      params,
     })
 
     companyPaymentRows.value = data.rows || []
     companyPaymentSummary.value = {
       totalPaidAmount: data.summary?.totalPaidAmount || 0,
+      totalReceiptAmount: data.summary?.totalReceiptAmount || 0,
+      totalUnallocatedAmount: data.summary?.totalUnallocatedAmount || 0,
       totalPendingToPay: data.summary?.totalPendingToPay || 0,
       totalDeductionNeedToGet: data.summary?.totalDeductionNeedToGet || 0,
+      totalDeductionCollected: data.summary?.totalDeductionCollected || 0,
       totalPayableAmount: data.summary?.totalPayableAmount || 0,
     }
   } finally {
     companyPaymentLoading.value = false
   }
+}
+
+async function clearCompanyPaymentFilter() {
+  companyPaymentFilter.value = { from: '', to: '' }
+  await loadCompanyPayments()
 }
 
 async function addCompanyPayment() {
@@ -578,16 +902,19 @@ async function addCompanyPayment() {
 
   companyPaymentSaving.value = true
   try {
-    await api.post(`/dashboard/company-payments/${selectedCompany.value.companyId}`, {
+    const payload = {
       transactionType: companyPaymentForm.value.transactionType || 'payment',
       amount: Number(companyPaymentForm.value.amount || 0),
       mode: companyPaymentForm.value.mode || 'cash',
-      date: companyPaymentForm.value.date,
       notes: companyPaymentForm.value.notes || '',
-    })
+    }
+    if (companyPaymentForm.value.date) payload.date = companyPaymentForm.value.date
 
-    companyPaymentForm.value = { transactionType: 'payment', date: today(), amount: null, mode: 'cash', notes: '' }
-    await Promise.all([loadCompanyPayments(), dashboardStore.fetch()])
+    await api.post(`/dashboard/company-payments/${selectedCompany.value.companyId}`, payload)
+
+    companyPaymentForm.value = defaultCompanyPaymentForm()
+    await loadCompanyPayments()
+    void dashboardStore.fetch(true).catch(() => {})
     notify.success(t('savedSuccess'))
   } catch (error) {
     notify.error(error?.response?.data?.message || t('actionFailed'))
@@ -604,17 +931,20 @@ async function updateCompanyPayment() {
 
   companyPaymentSaving.value = true
   try {
-    await api.put(`/payments/${editingPaymentId.value}`, {
+    const payload = {
       company: selectedCompany.value.companyId,
       transactionType: companyPaymentForm.value.transactionType || 'payment',
       amount: Number(companyPaymentForm.value.amount || 0),
       mode: companyPaymentForm.value.mode || 'cash',
-      date: companyPaymentForm.value.date,
       notes: companyPaymentForm.value.notes || '',
-    })
+    }
+    if (companyPaymentForm.value.date) payload.date = companyPaymentForm.value.date
+
+    await api.put(`/payments/${editingPaymentId.value}`, payload)
 
     resetCompanyPaymentForm()
-    await Promise.all([loadCompanyPayments(), dashboardStore.fetch()])
+    await loadCompanyPayments()
+    void dashboardStore.fetch(true).catch(() => {})
     notify.success('Payment updated successfully')
   } catch (error) {
     notify.error(error?.response?.data?.message || t('actionFailed'))
@@ -636,7 +966,8 @@ async function deleteCompanyPayment(id) {
   try {
     await api.delete(`/payments/${id}`)
     if (editingPaymentId.value === id) resetCompanyPaymentForm()
-    await Promise.all([loadCompanyPayments(), dashboardStore.fetch()])
+    await loadCompanyPayments()
+    void dashboardStore.fetch(true).catch(() => {})
     notify.success('Payment deleted successfully')
   } catch (error) {
     notify.error(error?.response?.data?.message || t('actionFailed'))
@@ -659,34 +990,22 @@ function startEditCompanyPayment(row) {
 
 function resetCompanyPaymentForm() {
   editingPaymentId.value = null
-  companyPaymentForm.value = { transactionType: 'payment', date: today(), amount: null, mode: 'cash', notes: '' }
-}
-
-async function loadPeriodProduction() {
-  dashboardRangeLoading.value = true
-  try {
-    const { data } = await api.get('/production', {
-      params: {
-        from: dashboardRange.value.from,
-        to: dashboardRange.value.to,
-      },
-    })
-    periodProductionRows.value = data || []
-  } finally {
-    dashboardRangeLoading.value = false
-  }
-}
-
-function resetDashboardRange() {
-  dashboardRange.value = { from: monthStart(), to: today() }
-  loadPeriodProduction()
+  companyPaymentForm.value = defaultCompanyPaymentForm()
 }
 
 async function openCompanyPayments(company) {
   selectedCompany.value = company
   resetCompanyPaymentForm()
+  companyPaymentFilter.value = defaultCompanyPaymentFilter()
   companyPaymentsDialog.value = true
   await loadCompanyPayments()
+}
+
+function openAllocatePayments() {
+  const companyId = selectedCompany.value?.companyId
+  if (!companyId || companyId === 'unknown') return
+  companyPaymentsDialog.value = false
+  router.push(`/allocations?company=${companyId}`)
 }
 
 function openAddOrder(company) {
@@ -699,71 +1018,268 @@ function openAddOrder(company) {
 }
 
 function goToOrderDetail(row) {
-  if (!row?._id) return
-  router.push(`/orders/${row._id}`)
+  const location = getOrderDetailLocation(row)
+  if (!location) return
+  router.push(location)
+}
+
+function getOrderDetailLocation(row) {
+  if (!row?._id) return null
+  const query = { from: 'dashboard' }
+  const expandCompany = String(row?.company?._id || row?.companyId || '').trim()
+  if (expandCompany) query.expandCompany = expandCompany
+  const uiStateKey = createDashboardUiSnapshot()
+  if (uiStateKey) query.drs = uiStateKey
+  return { path: `/orders/${row._id}`, query }
+}
+
+function getOrderDetailHref(row) {
+  const location = getOrderDetailLocation(row)
+  return location ? router.resolve(location).href : '#'
 }
 
 const orderCols = [
-  { field: 'orderName', headerName: 'Order', flex: 1.5 },
-  { field: 'company.name', headerName: 'Company', flex: 1.2 },
-  { field: 'producedMeter', headerName: 'Produced', flex: 1, valueFormatter: p => fmtN(p.value) + ' m' },
+  {
+    field: 'orderName',
+    headerName: 'Order',
+    flex: 1.5,
+    minWidth: 140,
+    disableRowNavigation: true,
+    cellRenderer: p => `<a href="${getOrderDetailHref(p.data)}" style="display:block;color:#1A2744;font-weight:700;text-decoration:none">${p.value || '-'}</a>`,
+  },
+  { field: 'company.name',   headerName: 'Company',          flex: 1.2, minWidth: 130 },
+  { field: 'expectedMeter',  headerName: 'Expected (m)',     flex: 1,   minWidth: 110, valueFormatter: p => fmtN(p.value || 0) + ' m' },
+  { field: 'producedMeter',  headerName: 'Produced (m)',     flex: 1,   minWidth: 110, valueFormatter: p => fmtN(p.value || 0) + ' m' },
+  { field: 'rejectedMeter',  headerName: 'Meter Lost (m)',   flex: 1,   minWidth: 120, valueFormatter: p => fmtN(p.value || 0) + ' m' },
+  {
+    headerName: 'Rejection Loss',
+    flex: 1,
+    minWidth: 130,
+    valueFormatter: p => {
+      const rejectedMeter = Number(p.data?.rejectedMeter || 0)
+      const grossLoss = rejectedMeter * Number(p.data?.ratePerMeter || 0)
+      return fmt(grossLoss)
+    },
+  },
+  { field: 'ratePerMeter',   headerName: 'Rate/m',           flex: 0.8, minWidth: 90,  valueFormatter: p => fmtRatePerMeter(p.value || 0) },
+  { field: 'deductionPct',   headerName: 'Deduction %',      flex: 0.8, minWidth: 100, valueFormatter: p => Number(p.value || 0).toFixed(1) + '%' },
+  { field: 'startDate',      headerName: 'Start Date',       flex: 1,   minWidth: 110, valueFormatter: p => p.value ? fmtDate(p.value) : '-' },
   {
     field: 'status',
     headerName: 'Status',
-    flex: 1,
+    flex: 0.9, minWidth: 90,
     cellRenderer: p => `<span class="${p.value === 'completed' ? 'chip-done' : 'chip-active'}" style="padding:2px 10px;border-radius:20px;font-size:11px">${p.value === 'completed' ? 'Done' : 'Active'}</span>`,
   },
-].map(col => ({
-  ...col,
-  onCellClicked: ({ data }) => goToOrderDetail(data),
-}))
+].map(col => (
+  col.disableRowNavigation
+    ? col
+    : { ...col, onCellClicked: ({ data }) => goToOrderDetail(data) }
+))
 
-async function load() {
+async function load(force = false) {
   await Promise.all([
-    orderStore.fetch(),
-    dashboardStore.fetch().catch(() => {}),
-    loadPeriodProduction(),
+    orderStore.fetch({}, { force }),
+    dashboardStore.fetch(force).catch(() => {}),
   ])
 }
 
-onMounted(load)
+onMounted(async () => {
+  readDashboardUiStateFromQuery()
+  await load(false)
+  applyPendingDashboardUiState()
+})
 </script>
 
 <style scoped>
-.insight-hero {
-  padding: 10px 14px;
+/* ── Hero Banner ─────────────────────────────────────────────────── */
+.dash-hero {
   background:
-    radial-gradient(700px 180px at -10% -30%, rgba(21, 101, 192, 0.16), transparent 60%),
-    radial-gradient(680px 180px at 110% -30%, rgba(46, 125, 50, 0.12), transparent 60%),
-    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    radial-gradient(1200px 260px at -8% -40%, rgba(21, 101, 192, 0.18), transparent 62%),
+    radial-gradient(900px 220px at 108% -32%, rgba(46, 125, 50, 0.13), transparent 62%),
+    linear-gradient(180deg, #f3f7ff 0%, #eef4ff 100%);
+  border-radius: 20px;
+  padding: 20px;
+  border: 1px solid #dde6f5;
+  box-shadow: 0 8px 28px rgba(21, 101, 192, 0.1);
 }
 
-.insight-item {
-  border: 1px solid #dce7f2;
-  border-radius: 14px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.92);
+.hero-topline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
 }
 
-.insight-label {
-  font-size: 11px;
-  letter-spacing: 0.5px;
+.hero-pill {
+  border: 1px solid #d8e5f3;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(2px);
+}
+
+.hero-pill-label {
+  display: block;
+  font-size: 10px;
   text-transform: uppercase;
-  color: #5a6a85;
+  letter-spacing: 0.45px;
+  color: #7388a4;
   font-weight: 700;
 }
 
-.insight-value {
+.hero-pill-value {
+  display: block;
   margin-top: 2px;
-  font-size: 24px;
+  font-size: 16px;
+  color: #173a63;
   font-weight: 800;
 }
 
-.insight-sub {
-  margin-top: 2px;
-  font-size: 12px;
-  color: #5a6a85;
+.dash-insights {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
 }
+
+.dash-insight-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #e0eaf5;
+  box-shadow: 0 2px 12px rgba(21,101,192,0.07);
+  overflow: hidden;
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+.dash-insight-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(21,101,192,0.13); }
+
+/* colored left border accent */
+.dh-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 5px; border-radius: 16px 0 0 16px; }
+.accent-blue   { background: linear-gradient(180deg,#1976d2,#42a5f5); }
+.accent-orange { background: linear-gradient(180deg,#e65100,#ffa726); }
+.accent-green  { background: linear-gradient(180deg,#2e7d32,#66bb6a); }
+
+.dh-icon-wrap {
+  width: 48px; height: 48px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+.icon-blue   { background: linear-gradient(135deg,#1565c0,#42a5f5); box-shadow: 0 4px 12px rgba(21,101,192,0.35); }
+.icon-orange { background: linear-gradient(135deg,#e65100,#ffa726); box-shadow: 0 4px 12px rgba(230,81,0,0.35); }
+.icon-green  { background: linear-gradient(135deg,#2e7d32,#66bb6a); box-shadow: 0 4px 12px rgba(46,125,50,0.35); }
+.icon-violet { background: linear-gradient(135deg,#7b1fa2,#ab47bc); box-shadow: 0 4px 12px rgba(123,31,162,0.35); }
+
+.dh-body { flex: 1; min-width: 0; }
+.dh-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #7a90ab; }
+.dh-value { font-size: 28px; font-weight: 800; margin-top: 4px; line-height: 1.1; color: #162f55; }
+.dh-sub   { font-size: 12px; color: #8fa3bc; margin-top: 4px; }
+
+.dh-kpis {
+  margin-top: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dh-kpis span {
+  font-size: 11px;
+  color: #5f7594;
+  font-weight: 700;
+}
+
+.dh-progress {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dh-progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: #dde8f6;
+  overflow: hidden;
+}
+
+.dh-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1d7acb 0%, #24a66a 100%);
+}
+
+.dh-progress-value {
+  font-size: 11px;
+  font-weight: 800;
+  color: #234c7a;
+}
+
+.tone-blue   .dh-value { color: #1565c0; }
+.tone-orange .dh-value { color: #e65100; }
+.tone-green  .dh-value { color: #2e7d32; }
+.tone-violet .dh-value { color: #7b1fa2; }
+
+.accent-violet { background: linear-gradient(180deg,#8e24aa,#ba68c8); }
+
+/* stat chips row */
+.dash-chips {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 10px;
+}
+@media (max-width: 1200px) { .dash-chips { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 860px)  { .dash-chips { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px)  { .dash-chips { grid-template-columns: 1fr; } }
+@media (max-width: 1200px) {
+  .hero-topline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dash-insights {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1024px) {
+  .dash-insights {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 700px)  {
+  .hero-topline,
+  .dash-insights {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dash-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px;
+  min-height: 88px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e0eaf5;
+  box-shadow: 0 1px 6px rgba(21,101,192,0.06);
+  transition: box-shadow 0.15s;
+}
+.dash-chip:hover { box-shadow: 0 4px 14px rgba(21,101,192,0.13); }
+
+.dc-icon-box {
+  width: 38px; height: 38px;
+  border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+.dc-label { font-size: 11px; color: #8fa3bc; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+.dc-value { font-size: 16px; font-weight: 800; line-height: 1.2; color: #162f55; }
 
 .insight-item.tone-info .insight-value { color: #1565c0; }
 .insight-item.tone-warn .insight-value { color: #e65100; }
@@ -785,9 +1301,16 @@ onMounted(load)
 
 .company-head-inner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+}
+
+.company-head-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 }
   
 :deep(.cp-edit-btn) {
@@ -834,6 +1357,14 @@ onMounted(load)
 }
 
 .company-head-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.company-head-controls {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -925,6 +1456,8 @@ onMounted(load)
 .toggle-all-btn {
   font-weight: 700;
   letter-spacing: 0.2px;
+  min-height: 34px;
+  padding: 0 14px;
 }
 
 .company-head-badge.pending {
@@ -940,6 +1473,11 @@ onMounted(load)
 .company-head-badge.neutral {
   background: #eef5ff;
   color: #1e4f8a;
+}
+
+.company-head-badge.deduction {
+  background: #fff2f2;
+  color: #a83d3d;
 }
 
 .company-panel {
@@ -1002,9 +1540,21 @@ onMounted(load)
 
 .company-master-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   margin-top: 12px;
+}
+
+@media (max-width: 980px) {
+  .company-master-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .company-master-metrics {
+    grid-template-columns: 1fr;
+  }
 }
 
 .money-chip {
@@ -1012,6 +1562,7 @@ onMounted(load)
   border: 1px solid #deebf6;
   padding: 10px 12px;
   background: #fff;
+  min-height: 72px;
 }
 
 .money-chip span {
@@ -1026,8 +1577,16 @@ onMounted(load)
   font-size: 18px;
 }
 
+.money-chip.payable strong {
+  color: #2e7d32;
+}
+
 .money-chip.paid strong {
   color: #1b7f3f;
+}
+
+.money-chip.unallocated strong {
+  color: #1565c0;
 }
 
 .money-chip.pending strong {
@@ -1036,6 +1595,26 @@ onMounted(load)
 
 .money-chip.deduction strong {
   color: #c62828;
+}
+
+.money-chip.meter-lost strong {
+  color: #ef6c00;
+}
+
+.money-chip.loss strong {
+  color: #0d47a1;
+}
+
+.money-chip.settle strong {
+  color: #2e7d32;
+}
+
+.money-chip.deduction-collected strong {
+  color: #8e24aa;
+}
+
+.money-chip.avg-rate strong {
+  color: #1565c0;
 }
 
 .settle-wrap {
@@ -1077,12 +1656,64 @@ onMounted(load)
   background: linear-gradient(90deg, #22c55e 0%, #0ea5e9 100%);
 }
 
+.settle-sub {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #52708f;
+}
+
+.deduction-wrap {
+  margin-top: 10px;
+}
+
+.deduction-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  color: #7a3e3e;
+}
+
+.deduction-track {
+  margin-top: 6px;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f4dfdf;
+}
+
+.deduction-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f59e0b 0%, #ef4444 100%);
+}
+
+.deduction-fill.is-low {
+  background: linear-gradient(90deg, #f59e0b 0%, #f97316 100%);
+}
+
+.deduction-fill.is-mid {
+  background: linear-gradient(90deg, #f97316 0%, #ec4899 100%);
+}
+
+.deduction-fill.is-good {
+  background: linear-gradient(90deg, #22c55e 0%, #10b981 100%);
+}
+
+.deduction-sub {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #8f5959;
+}
+
 .company-order-strip {
   margin-top: 12px;
   border: 1px solid #dde8f4;
   border-radius: 12px;
   background: #f8fbff;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .company-order-strip-head {
@@ -1098,22 +1729,48 @@ onMounted(load)
 
 .company-order-table {
   width: 100%;
+  min-width: 1040px;
   border-collapse: collapse;
 }
 
 .company-order-table th,
 .company-order-table td {
-  padding: 9px 11px;
+  padding: 10px 12px;
   font-size: 13px;
   text-align: left;
   border-bottom: 1px solid #ebf1f7;
+  vertical-align: middle;
+}
+
+.company-order-name-cell {
+  min-width: 190px;
+}
+
+.company-order-link {
+  display: inline-block;
+  max-width: 100%;
+  color: #1a2744;
+  font-weight: 700;
+  text-decoration: none;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.company-order-link:hover {
+  text-decoration: underline;
 }
 
 .company-order-table thead th {
-  font-size: 10px;
-  letter-spacing: 0.4px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  letter-spacing: 0.55px;
   text-transform: uppercase;
   color: #5e7290;
+  white-space: nowrap;
+  word-break: normal;
+  background: #f8fbff;
 }
 
 .company-order-table tbody tr {
@@ -1124,14 +1781,31 @@ onMounted(load)
   background: #eef5ff;
 }
 
+.company-order-table tfoot td {
+  padding: 10px 11px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #173a63;
+  border-top: 1px solid #d8e6f4;
+  background: linear-gradient(180deg, #f5faff 0%, #edf5ff 100%);
+}
+
+.company-order-total-row td:first-child {
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+}
+
 .state-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   padding: 3px 9px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
   border: 1px solid transparent;
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
 .state-pill.neutral {
@@ -1221,6 +1895,14 @@ onMounted(load)
     align-items: flex-start;
   }
 
+  .company-head-side,
+  .company-head-badges,
+  .company-head-controls {
+    width: 100%;
+    justify-content: flex-start;
+    align-items: flex-start;
+  }
+
   .dashboard-range-bar {
     width: 100%;
     flex-direction: column;
@@ -1250,13 +1932,17 @@ onMounted(load)
   }
 
   .company-master-metrics {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .company-order-strip-head {
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
+  }
+
+  .company-order-table {
+    min-width: 980px;
   }
 }
 </style>

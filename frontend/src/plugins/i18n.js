@@ -120,12 +120,14 @@ const ta = {
   savedSuccess: 'வெற்றிகரமாக சேமிக்கப்பட்டது',
   deletedSuccess: 'வெற்றிகரமாக நீக்கப்பட்டது',
   actionFailed: 'செயல் தோல்வியடைந்தது',
+  confirmAction: 'உறுதிப்படுத்தவும்',
+  confirmMessage: 'இந்த செயலையை தொடர விரும்புகிறீர்களா?',
   deleteConfirm: 'நீக்க வேண்டுமா?',
   deleteMessage: 'இந்த பதிவை நீக்க விரும்புகிறீர்களா?',
 }
 
 const en = {
-  appName: 'ASHOK TEX', appSub: 'Powerloom Management',
+  appName: 'ASHOK TEX', appSub: 'Autoloom Management',
   login: 'Login', logout: 'Logout',
   username: 'Username', password: 'Password',
   loginBtn: 'Sign In', loginWelcome: 'Welcome Back!',
@@ -237,6 +239,8 @@ const en = {
   from: 'From', to: 'To', generate: 'Generate',
   savedSuccess: 'Saved successfully', deletedSuccess: 'Deleted successfully',
   actionFailed: 'Action failed',
+  confirmAction: 'Confirmation',
+  confirmMessage: 'Are you sure you want to continue?',
   deleteConfirm: 'Delete Confirmation', deleteMessage: 'Are you sure you want to delete this record?',
 }
 

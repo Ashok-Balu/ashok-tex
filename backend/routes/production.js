@@ -1,8 +1,8 @@
 const router   = require('express').Router()
 const ah       = require('express-async-handler')
 const auth     = require('../middleware/auth')
-const { Production, MachineSetting } = require('../models')
-const { recalcProduced } = require('./orders')
+const { Production, MachineSetting, Order } = require('../models')
+const { recalcProduced, withComputedOrderFields } = require('./orders')
 
 router.use(auth)
 
@@ -39,28 +39,66 @@ router.get('/', ah(async (req, res) => {
       f.date.$lte = to
     }
   }
-  res.json(await Production.find(f).populate('order', 'orderName').sort({ date: -1, machineNo: 1 }))
+  let query = Production.find(f).sort({ date: -1, machineNo: 1 })
+  if (!req.query.orderId) {
+    query = query.populate('order', 'orderName')
+  }
+  res.json(await query.lean())
 }))
 
 router.post('/', ah(async (req, res) => {
+  const order = await Order.findById(req.body.order).select('productionClosed')
+  if (!order) return res.status(404).json({ message: 'Order not found' })
+  if (order.productionClosed) {
+    return res.status(400).json({ message: 'Order production is closed. Entry not allowed.' })
+  }
+
   const doc = await Production.create(req.body)
   await recalcProduced(doc.order)
-  await doc.populate('order', 'orderName')
-  res.status(201).json(doc)
+  const updatedOrderDoc = await Order.findById(doc.order).populate('company', 'name defaultDeduction')
+  res.status(201).json({
+    entry: doc,
+    order: updatedOrderDoc ? withComputedOrderFields(updatedOrderDoc) : null,
+  })
 }))
 
 router.put('/:id', ah(async (req, res) => {
-  const doc = await Production.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('order', 'orderName')
-  if (!doc) return res.status(404).json({ message: 'Not found' })
-  const oid = doc.order?._id || doc.order
+  const existing = await Production.findById(req.params.id).select('order')
+  if (!existing) return res.status(404).json({ message: 'Not found' })
+  const order = await Order.findById(existing.order).select('productionClosed')
+  if (order?.productionClosed) {
+    return res.status(400).json({ message: 'Order production is closed. Entry cannot be edited.' })
+  }
+
+  const doc = await Production.findByIdAndUpdate(req.params.id, req.body, { new: true })
+  const oid = doc.order
   await recalcProduced(oid)
-  res.json(doc)
+  const updatedOrderDoc = await Order.findById(oid).populate('company', 'name defaultDeduction')
+  res.json({
+    entry: doc,
+    order: updatedOrderDoc ? withComputedOrderFields(updatedOrderDoc) : null,
+  })
 }))
 
 router.delete('/:id', ah(async (req, res) => {
+  const existing = await Production.findById(req.params.id).select('order')
+  if (!existing) return res.status(404).json({ message: 'Not found' })
+  const order = await Order.findById(existing.order).select('productionClosed')
+  if (order?.productionClosed) {
+    return res.status(400).json({ message: 'Order production is closed. Entry cannot be deleted.' })
+  }
+
   const doc = await Production.findByIdAndDelete(req.params.id)
-  if (doc) await recalcProduced(doc.order)
-  res.json({ message: 'Deleted' })
+  if (doc) {
+    await recalcProduced(doc.order)
+    const updatedOrderDoc = await Order.findById(doc.order).populate('company', 'name defaultDeduction')
+    return res.json({
+      message: 'Deleted',
+      deletedId: req.params.id,
+      order: updatedOrderDoc ? withComputedOrderFields(updatedOrderDoc) : null,
+    })
+  }
+  res.json({ message: 'Deleted', deletedId: req.params.id, order: null })
 }))
 
 module.exports = router
