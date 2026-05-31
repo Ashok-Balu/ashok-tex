@@ -194,11 +194,11 @@
                   <!-- right: gross / net / delete -->
                   <div class="run-title-right">
                     <div class="run-stat">
-                      <span class="run-stat-label">Total Wages</span>
+                      <span class="run-stat-label">Gross</span>
                       <span class="run-stat-value">₹{{ fmt(run.employees.reduce((s,e)=>s+(e.totalWages||0),0)) }}</span>
                     </div>
                     <div class="run-stat">
-                      <span class="run-stat-label">Final</span>
+                      <span class="run-stat-label">Net</span>
                       <span class="run-stat-value run-net">₹{{ fmt(runNet(run)) }}</span>
                     </div>
                     <v-btn icon="mdi-pencil-outline" size="small" variant="tonal" color="primary" rounded="lg" @click.stop="openEditRunDialog(run)" />
@@ -214,11 +214,9 @@
                         <th class="text-left">Employee</th>
                         <th class="text-center">Days</th>
                         <th class="text-right">Wage/Day</th>
-                        <th class="text-right">Total Wages</th>
+                        <th class="text-right">Gross</th>
                         <th class="text-right">Deduction</th>
-                        <th class="text-right">Market</th>
-                        <th class="text-right">Advance</th>
-                        <th class="text-right">Final Salary</th>
+                        <th class="text-right">Net Salary</th>
                         <th class="text-right">Paid</th>
                         <th class="text-center">Status</th>
                       </tr>
@@ -230,9 +228,7 @@
                         <td class="text-right">₹{{ fmt(emp.dailyWage) }}</td>
                         <td class="text-right">₹{{ fmt(emp.totalWages) }}</td>
                         <td class="text-right c-error">₹{{ fmt(emp.deductionAmount) }}</td>
-                        <td class="text-right c-error">₹{{ fmt(emp.marketAmount || 0) }}</td>
-                        <td class="text-right c-error">₹{{ fmt(emp.advanceAmount || 0) }}</td>
-                        <td class="text-right font-weight-bold">₹{{ fmt(emp.finalSalary ?? emp.netSalary) }}</td>
+                        <td class="text-right font-weight-bold">₹{{ fmt(emp.netSalary) }}</td>
                         <td class="text-right c-success">₹{{ fmt(emp.amountPaid) }}</td>
                         <td class="text-center">
                           <span class="status-badge" :class="'status-' + emp.paymentStatus">
@@ -243,13 +239,9 @@
                     </tbody>
                     <tfoot>
                       <tr class="tfoot-row">
-                        <td class="text-right">Run Total</td>
-                        <td class="text-center">{{ run.employees.reduce((s,e)=>s+(e.daysWorked||0),0) }}</td>
-                        <td></td>
+                        <td colspan="3" class="text-right">Run Total</td>
                         <td class="text-right">₹{{ fmt(run.employees.reduce((s,e)=>s+(e.totalWages||0),0)) }}</td>
                         <td class="text-right c-error">₹{{ fmt(run.employees.reduce((s,e)=>s+(e.deductionAmount||0),0)) }}</td>
-                        <td class="text-right c-error">₹{{ fmt(run.employees.reduce((s,e)=>s+(e.marketAmount||0),0)) }}</td>
-                        <td class="text-right c-error">₹{{ fmt(run.employees.reduce((s,e)=>s+(e.advanceAmount||0),0)) }}</td>
                         <td class="text-right">₹{{ fmt(runNet(run)) }}</td>
                         <td class="text-right c-success">₹{{ fmt(run.employees.reduce((s,e)=>s+(e.amountPaid||0),0)) }}</td>
                         <td></td>
@@ -279,8 +271,8 @@
                   <!-- right: net / pending -->
                   <div class="run-title-right">
                     <div class="run-stat">
-                      <span class="run-stat-label">Final Salary</span>
-                      <span class="run-stat-value">₹{{ fmt(row.finalSalary) }}</span>
+                      <span class="run-stat-label">Net Salary</span>
+                      <span class="run-stat-value">₹{{ fmt(row.netSalary) }}</span>
                     </div>
                     <div class="run-stat">
                       <span class="run-stat-label">Pending</span>
@@ -297,44 +289,31 @@
                       <th>To</th>
                       <th class="text-right">Days</th>
                       <th class="text-right">Wage/Day</th>
-                      <th class="text-right">Total Wages</th>
+                      <th class="text-right">Gross</th>
                       <th class="text-right">Deduction</th>
-                      <th class="text-right">Market</th>
-                      <th class="text-right">Advance</th>
-                      <th class="text-right">Final</th>
+                      <th class="text-right">Net</th>
                       <th class="text-right">Paid</th>
-                      <th class="text-center">Edit</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="p in row.periods" :key="p.runId">
+                    <tr v-for="p in row.periods" :key="p.periodStart">
                       <td>{{ fmtDate(p.periodStart) }}</td>
                       <td>{{ fmtDate(p.periodEnd) }}</td>
                       <td class="text-right">{{ p.daysWorked }}</td>
                       <td class="text-right">₹{{ fmt(p.dailyWage) }}</td>
                       <td class="text-right">₹{{ fmt(p.totalWages) }}</td>
                       <td class="text-right text-error">₹{{ fmt(p.deductionAmount) }}</td>
-                      <td class="text-right text-error">₹{{ fmt(p.marketAmount || 0) }}</td>
-                      <td class="text-right text-error">₹{{ fmt(p.advanceAmount || 0) }}</td>
-                      <td class="text-right font-weight-bold">₹{{ fmt(p.finalSalary ?? p.netSalary) }}</td>
+                      <td class="text-right font-weight-bold">₹{{ fmt(p.netSalary) }}</td>
                       <td class="text-right text-success">₹{{ fmt(p.amountPaid) }}</td>
-                      <td class="text-center">
-                        <v-btn size="x-small" icon="mdi-pencil-outline" variant="tonal" color="primary" @click="openEditRunById(p.runId)" />
-                      </td>
                     </tr>
                   </tbody>
                   <tfoot>
                     <tr class="bg-grey-lighten-5 font-weight-bold">
-                      <td colspan="2" class="text-right pr-2">Month Total</td>
-                      <td class="text-right">{{ fmt(row.totalDays) }}</td>
-                      <td></td>
+                      <td colspan="4" class="text-right pr-2">Month Total</td>
                       <td class="text-right">₹{{ fmt(row.totalWages) }}</td>
                       <td class="text-right text-error">₹{{ fmt(row.deductionAmount) }}</td>
-                      <td class="text-right text-error">₹{{ fmt(row.periods.reduce((s,p)=>s+(p.marketAmount||0),0)) }}</td>
-                      <td class="text-right text-error">₹{{ fmt(row.periods.reduce((s,p)=>s+(p.advanceAmount||0),0)) }}</td>
-                      <td class="text-right">₹{{ fmt(row.finalSalary) }}</td>
+                      <td class="text-right">₹{{ fmt(row.netSalary) }}</td>
                       <td class="text-right text-success">₹{{ fmt(row.amountPaid) }}</td>
-                      <td></td>
                     </tr>
                   </tfoot>
                 </v-table>
@@ -393,8 +372,8 @@
 
               <div class="pay-card__stats">
                 <div class="pay-stat">
-                  <div class="pay-stat__label">Total Final Salary</div>
-                  <div class="pay-stat__val">₹{{ fmt(emp.totalFinalSalary || emp.totalNet) }}</div>
+                  <div class="pay-stat__label">Total Earned</div>
+                  <div class="pay-stat__val">₹{{ fmt(emp.totalNet) }}</div>
                 </div>
                 <div class="pay-stat">
                   <div class="pay-stat__label">Total Paid</div>
@@ -492,11 +471,9 @@
                     <th>To</th>
                     <th class="text-right">Days</th>
                     <th class="text-right">Wage/Day</th>
-                    <th class="text-right">Total Wages</th>
+                    <th class="text-right">Gross</th>
                     <th class="text-right">Deduction</th>
-                    <th class="text-right">Market</th>
-                    <th class="text-right">Advance</th>
-                    <th class="text-right">Final</th>
+                    <th class="text-right">Net</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -507,9 +484,7 @@
                     <td class="text-right">₹{{ fmt(entry.dailyWage) }}</td>
                     <td class="text-right">₹{{ fmt(entry.totalWages) }}</td>
                     <td class="text-right text-error">₹{{ fmt(entry.deductionAmount) }}</td>
-                    <td class="text-right text-error">₹{{ fmt(entry.marketAmount || 0) }}</td>
-                    <td class="text-right text-error">₹{{ fmt(entry.advanceAmount || 0) }}</td>
-                    <td class="text-right font-weight-bold">₹{{ fmt(entry.finalSalary ?? entry.netSalary) }}</td>
+                    <td class="text-right font-weight-bold">₹{{ fmt(entry.netSalary) }}</td>
                   </tr>
                 </tbody>
               </v-table>
@@ -559,94 +534,37 @@
     </v-dialog>
 
     <!-- New Run Dialog -->
-    <v-dialog v-model="runDialog" max-width="1180" scrollable>
+    <v-dialog v-model="runDialog" max-width="860" scrollable>
       <v-card rounded="xl">
         <div class="dialog-header dialog-header--green">
           <v-icon icon="mdi-calendar-plus" size="22" class="mr-2" />
           New Salary Run — {{ selMonthLabel }} {{ selYear }}
         </div>
         <v-card-text class="px-5 pt-5">
-          <div class="view-toggle mb-4">
-            <button :class="['toggle-btn', runMode === 'period' ? 'toggle-btn--active' : '']" @click="runMode = 'period'">
-              <v-icon size="16" class="mr-1">mdi-calendar-range</v-icon> By Period
-            </button>
-            <button :class="['toggle-btn', runMode === 'employee' ? 'toggle-btn--active' : '']" @click="runMode = 'employee'">
-              <v-icon size="16" class="mr-1">mdi-account</v-icon> By Employee
-            </button>
-          </div>
-
           <v-row class="mb-2 run-period-row" dense>
             <v-col cols="12" sm="4">
-              <v-menu v-model="runStartMenu" :close-on-content-click="false" location="bottom">
-                <template #activator="{ props }">
-                  <v-text-field
-                    v-bind="props"
-                    :model-value="runForm.periodStart"
-                    label="From Date *"
-                    readonly
-                    density="compact"
-                    variant="outlined"
-                    rounded="lg"
-                    hide-details="auto"
-                    class="run-period-field"
-                  />
-                </template>
-                <v-date-picker
-                  :model-value="runForm.periodStart"
-                  :first-day-of-week="1"
-                  show-adjacent-months
-                  @update:model-value="onPickRunStart"
-                />
-              </v-menu>
+              <v-text-field v-model="runForm.periodStart" label="From Date *" type="date" density="compact" variant="outlined" rounded="lg" hide-details="auto" class="run-period-field" />
             </v-col>
             <v-col cols="12" sm="4">
-              <v-menu v-model="runEndMenu" :close-on-content-click="false" location="bottom">
-                <template #activator="{ props }">
-                  <v-text-field
-                    v-bind="props"
-                    :model-value="runForm.periodEnd"
-                    label="To Date *"
-                    readonly
-                    density="compact"
-                    variant="outlined"
-                    rounded="lg"
-                    hide-details="auto"
-                    class="run-period-field"
-                  />
-                </template>
-                <v-date-picker
-                  :model-value="runForm.periodEnd"
-                  :first-day-of-week="1"
-                  show-adjacent-months
-                  @update:model-value="onPickRunEnd"
-                />
-              </v-menu>
+              <v-text-field v-model="runForm.periodEnd" label="To Date *" type="date" density="compact" variant="outlined" rounded="lg" hide-details="auto" class="run-period-field" />
             </v-col>
             <v-col cols="12" sm="4">
               <v-text-field v-model="runForm.runTitle" label="Label (e.g. Week 1)" density="compact" variant="outlined" rounded="lg" hide-details="auto" class="run-period-field" />
             </v-col>
           </v-row>
 
-          <v-alert v-if="runMode === 'period'" type="info" variant="tonal" density="compact" class="mb-3">
-            End date auto-adjusts to upcoming Sunday when you pick start date.
-          </v-alert>
-
-          <template v-if="runMode === 'period'">
-          <div class="text-subtitle-2 font-weight-bold mb-2">Select Employees for the Period</div>
-          <v-table density="compact" class="run-input-table run-input-table--period mb-2">
+          <div class="text-subtitle-2 font-weight-bold mb-2">Select Employees</div>
+          <v-table density="compact" class="run-input-table">
             <thead>
               <tr class="bg-grey-lighten-4">
                 <th style="width:44px">
                   <v-checkbox v-model="selectAllRun" density="compact" hide-details @update:model-value="toggleAllRun" />
                 </th>
                 <th>Name</th>
-                <th class="text-right" style="width:100px">Days Worked</th>
-                <th class="text-right" style="width:120px">Wage/Day (Rs.)</th>
-                <th class="text-right" style="width:130px">Total Wages (Rs.)</th>
-                <th class="text-right" style="width:110px">Deduction %</th>
-                <th class="text-right" style="width:120px">Market Amount</th>
-                <th class="text-right" style="width:120px">Advance Amount</th>
-                <th class="text-right" style="width:120px">Final Salary</th>
+                <th style="width:100px">Days Worked</th>
+                <th style="width:120px">Wage/Day (Rs.)</th>
+                <th style="width:110px">Deduction %</th>
+                <th class="text-right" style="width:110px">Net Salary</th>
               </tr>
             </thead>
             <tbody>
@@ -655,17 +573,12 @@
                 <td class="font-weight-medium">{{ row.name }}</td>
                 <td>
                   <v-text-field v-if="row.selected" v-model.number="row.daysWorked" type="number" min="0"
-                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--xs" @update:model-value="syncFromDaysOrWage(row)" />
+                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--xs" />
                   <span v-else class="text-medium-emphasis">—</span>
                 </td>
                 <td>
                   <v-text-field v-if="row.selected" v-model.number="row.wagePerDay" type="number" min="0"
-                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input" @update:model-value="syncFromDaysOrWage(row)" />
-                  <span v-else class="text-medium-emphasis">—</span>
-                </td>
-                <td>
-                  <v-text-field v-if="row.selected" v-model.number="row.totalWages" type="number" min="0"
-                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input" @update:model-value="syncFromTotalWages(row)" />
+                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input" />
                   <span v-else class="text-medium-emphasis">—</span>
                 </td>
                 <td>
@@ -673,122 +586,25 @@
                     density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--sm" />
                   <span v-else class="text-medium-emphasis">—</span>
                 </td>
-                <td>
-                  <v-text-field v-if="row.selected" v-model.number="row.marketAmount" type="number" min="0"
-                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--sm" />
-                  <span v-else class="text-medium-emphasis">—</span>
-                </td>
-                <td>
-                  <v-text-field v-if="row.selected" v-model.number="row.advanceAmount" type="number" min="0"
-                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--sm" />
-                  <span v-else class="text-medium-emphasis">—</span>
-                </td>
                 <td class="text-right font-weight-bold">
-                  <span v-if="row.selected">₹{{ fmt(calcFinal(row)) }}</span>
+                  <span v-if="row.selected">₹{{ fmt(calcNet(row)) }}</span>
                   <span v-else class="text-medium-emphasis">—</span>
                 </td>
               </tr>
             </tbody>
-            <tfoot>
-              <tr class="bg-grey-lighten-5 font-weight-bold run-total-row">
-                <td></td>
-                <td class="run-total-label">Total</td>
-                <td class="run-total-value">{{ fmt(runTotalDays) }}</td>
-                <td></td>
-                <td class="run-total-value">₹{{ fmt(runTotalWages) }}</td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td class="run-total-value">₹{{ fmt(runTotalFinal) }}</td>
-              </tr>
-            </tfoot>
           </v-table>
-          </template>
-
-          <template v-else>
-            <v-select
-              v-model="selectedEmployeeId"
-              :items="employees"
-              item-title="name"
-              item-value="_id"
-              label="Employee *"
-              density="compact"
-              variant="outlined"
-              class="mb-3"
-            />
-
-            <div class="text-subtitle-2 font-weight-bold mb-2">Weekly Groups (Monday to Sunday)</div>
-            <v-table density="compact" class="run-input-table run-input-table--weekly mb-2">
-              <thead>
-                <tr class="bg-grey-lighten-4">
-                  <th style="width:230px">Week (Mon to Sun)</th>
-                  <th class="text-right" style="width:95px">Days</th>
-                  <th class="text-right" style="width:120px">Wages/Per</th>
-                  <th class="text-right" style="width:130px">Total Wages</th>
-                  <th class="text-right" style="width:105px">Deduction %</th>
-                  <th class="text-right" style="width:120px">Market Amt</th>
-                  <th class="text-right" style="width:120px">Advance Amt</th>
-                  <th class="text-right" style="width:120px">Final Salary</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in weeklyRows" :key="row.weekStart">
-                  <td class="font-weight-medium">
-                    <div class="week-range">{{ formatWeekRange(row.weekStart, row.weekEnd) }}</div>
-                    <div class="week-meta">Week {{ weekNumber(row.weekStart) }}</div>
-                  </td>
-                  <td>
-                    <v-text-field v-model.number="row.daysWorked" type="number" min="0"
-                      density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--xs" @update:model-value="syncFromDaysOrWage(row)" />
-                  </td>
-                  <td>
-                    <v-text-field v-model.number="row.wagePerDay" type="number" min="0"
-                      density="compact" variant="outlined" hide-details="auto" class="run-cell-input" @update:model-value="syncFromDaysOrWage(row)" />
-                  </td>
-                  <td>
-                    <v-text-field v-model.number="row.totalWages" type="number" min="0"
-                      density="compact" variant="outlined" hide-details="auto" class="run-cell-input" @update:model-value="syncFromTotalWages(row)" />
-                  </td>
-                  <td>
-                    <v-text-field v-model.number="row.deductionPercentage" type="number" min="0" max="100"
-                      density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--sm" />
-                  </td>
-                  <td>
-                    <v-text-field v-model.number="row.marketAmount" type="number" min="0"
-                      density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--sm" />
-                  </td>
-                  <td>
-                    <v-text-field v-model.number="row.advanceAmount" type="number" min="0"
-                      density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--sm" />
-                  </td>
-                  <td class="text-right font-weight-bold">₹{{ fmt(calcFinal(row)) }}</td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr class="bg-grey-lighten-5 font-weight-bold run-total-row">
-                  <td class="run-total-label">Total</td>
-                  <td class="run-total-value">{{ fmt(weeklyTotalDays) }}</td>
-                  <td></td>
-                  <td class="run-total-value">₹{{ fmt(weeklyTotalWages) }}</td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td class="run-total-value">₹{{ fmt(weeklyTotalFinal) }}</td>
-                </tr>
-              </tfoot>
-            </v-table>
-          </template>
+          <div class="run-total-bar">Total Net: <strong>₹{{ fmt(runTotalNet) }}</strong></div>
         </v-card-text>
         <v-card-actions class="px-5 pb-5">
           <v-spacer />
           <v-btn variant="text" rounded="lg" @click="runDialog = false">Cancel</v-btn>
-          <v-btn color="success" rounded="lg" elevation="0" :loading="loading" @click="saveRun">{{ runMode === 'employee' ? 'Create Weekly Runs' : 'Create Run' }}</v-btn>
+          <v-btn color="success" rounded="lg" elevation="0" :loading="loading" @click="saveRun">Create Run</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Edit Run Dialog -->
-    <v-dialog v-model="editRunDialog" max-width="1180" scrollable>
+    <v-dialog v-model="editRunDialog" max-width="860" scrollable>
       <v-card rounded="xl">
         <div class="dialog-header dialog-header--blue">
           <v-icon icon="mdi-pencil-outline" size="22" class="mr-2" />
@@ -811,14 +627,11 @@
           <v-table density="compact" class="run-input-table">
             <thead>
               <tr class="bg-grey-lighten-4">
-                <th style="min-width:180px">Name</th>
+                <th>Name</th>
                 <th style="width:100px">Days Worked</th>
                 <th style="width:120px">Wage/Day (Rs.)</th>
-                <th style="width:130px">Total Wages (Rs.)</th>
                 <th style="width:110px">Deduction %</th>
-                <th style="width:120px">Market Amount</th>
-                <th style="width:120px">Advance Amount</th>
-                <th class="text-right" style="width:110px">Final Salary</th>
+                <th class="text-right" style="width:110px">Net Salary</th>
               </tr>
             </thead>
             <tbody>
@@ -826,43 +639,19 @@
                 <td class="font-weight-medium">{{ row.name }}</td>
                 <td>
                   <v-text-field v-model.number="row.daysWorked" type="number" min="0"
-                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--xs" @update:model-value="syncFromDaysOrWage(row)" />
+                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--xs" />
                 </td>
                 <td>
                   <v-text-field v-model.number="row.wagePerDay" type="number" min="0"
-                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input" @update:model-value="syncFromDaysOrWage(row)" />
-                </td>
-                <td>
-                  <v-text-field v-model.number="row.totalWages" type="number" min="0"
-                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input" @update:model-value="syncFromTotalWages(row)" />
+                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input" />
                 </td>
                 <td>
                   <v-text-field v-model.number="row.deductionPercentage" type="number" min="0" max="100"
                     density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--sm" />
                 </td>
-                <td>
-                  <v-text-field v-model.number="row.marketAmount" type="number" min="0"
-                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--sm" />
-                </td>
-                <td>
-                  <v-text-field v-model.number="row.advanceAmount" type="number" min="0"
-                    density="compact" variant="outlined" hide-details="auto" class="run-cell-input run-cell-input--sm" />
-                </td>
-                <td class="text-right font-weight-bold">₹{{ fmt(calcFinal(row)) }}</td>
+                <td class="text-right font-weight-bold">₹{{ fmt(calcNet(row)) }}</td>
               </tr>
             </tbody>
-            <tfoot>
-              <tr class="bg-grey-lighten-5 font-weight-bold">
-                <td class="text-right">Total</td>
-                <td class="text-right">{{ fmt(editRunRows.reduce((s, r) => s + toNumber(r.daysWorked), 0)) }}</td>
-                <td></td>
-                <td class="text-right">₹{{ fmt(editRunRows.reduce((s, r) => s + calcRunAmounts(r).totalWages, 0)) }}</td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td class="text-right">₹{{ fmt(editRunRows.reduce((s, r) => s + calcRunAmounts(r).finalSalary, 0)) }}</td>
-              </tr>
-            </tfoot>
           </v-table>
           <div class="text-caption text-medium-emphasis mt-2">
             Note: Amounts already paid are preserved. Pending balance will be recalculated.
@@ -1006,7 +795,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import api from '@/plugins/axios'
 import { downloadPayslip as downloadPayslipPdf, payslipBlob } from '@/utils/payslipPdf'
 
@@ -1047,7 +836,6 @@ const snack = ref({ show: false, text: '', color: 'success' })
 const confirmDialog  = ref(false)
 const confirmMessage = ref('')
 const confirmAction  = ref(() => {})
-let monthRunsRequestSeq = 0
 
 // ── Computed ───────────────────────────────────────────────────────────────────
 const selMonthLabel = computed(() => MONTHS.find(m => m.value === selMonth.value)?.label || '')
@@ -1079,25 +867,18 @@ const monthEmpSummary = computed(() => {
       if (!map[id]) {
         map[id] = {
           employeeId: id, name: emp.name, periods: [],
-          totalDays: 0, totalWages: 0, deductionAmount: 0, netSalary: 0, finalSalary: 0, amountPaid: 0, amountPending: 0,
+          totalWages: 0, deductionAmount: 0, netSalary: 0, amountPaid: 0, amountPending: 0,
         }
       }
       map[id].periods.push({
-        runId: run._id,
         periodStart: run.periodStart, periodEnd: run.periodEnd,
         daysWorked: emp.daysWorked, dailyWage: emp.dailyWage,
         totalWages: emp.totalWages, deductionAmount: emp.deductionAmount,
-        netSalary: emp.netSalary,
-        marketAmount: emp.marketAmount || 0,
-        advanceAmount: emp.advanceAmount || 0,
-        finalSalary: emp.finalSalary ?? emp.netSalary,
-        amountPaid: emp.amountPaid,
+        netSalary: emp.netSalary, amountPaid: emp.amountPaid,
       })
-      map[id].totalDays       += emp.daysWorked      || 0
       map[id].totalWages      += emp.totalWages      || 0
       map[id].deductionAmount += emp.deductionAmount || 0
       map[id].netSalary       += emp.netSalary       || 0
-      map[id].finalSalary     += (emp.finalSalary ?? emp.netSalary) || 0
       map[id].amountPaid      += emp.amountPaid      || 0
       map[id].amountPending   += emp.amountPending   || 0
     })
@@ -1113,71 +894,14 @@ const fmtDate = (date) => {
   return new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-const toNumber = (v) => {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : 0
-}
+const runNet = (run) => run.employees.reduce((s, e) => s + (e.netSalary || 0), 0)
 
-const hasValue = (v) => v !== '' && v !== null && v !== undefined && !Number.isNaN(Number(v))
+const statusColor = (s) => ({ paid: 'success', partial: 'warning', pending: 'error' }[s] || 'default')
 
-const round2 = (v) => Math.round(toNumber(v) * 100) / 100
-
-const runNet = (run) => run.employees.reduce((s, e) => s + toNumber(e.finalSalary ?? e.netSalary), 0)
-
-const calcGross = (row) => {
-  const explicitTotal = toNumber(row.totalWages)
-  if (explicitTotal > 0) return round2(explicitTotal)
-  return round2(toNumber(row.daysWorked) * toNumber(row.wagePerDay))
-}
-
-const calcRunAmounts = (row) => {
-  const totalWages = calcGross(row)
-  const deductionAmount = Math.round(totalWages * (toNumber(row.deductionPercentage) / 100))
-  const netSalary = totalWages - deductionAmount
-  const marketAmount = toNumber(row.marketAmount)
-  const advanceAmount = toNumber(row.advanceAmount)
-  const finalSalary = Math.max(0, netSalary - marketAmount - advanceAmount)
-  return { totalWages, deductionAmount, netSalary, marketAmount, advanceAmount, finalSalary }
-}
-
-const calcFinal = (row) => calcRunAmounts(row).finalSalary
-
-const nextSunday = (dateStr) => {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  if (Number.isNaN(d.getTime())) return ''
-  const sunday = new Date(d)
-  const diff = (7 - d.getDay()) % 7
-  sunday.setDate(d.getDate() + diff)
-  return `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`
-}
-
-const mondayOfWeek = (date) => {
-  const d = new Date(date)
-  const day = d.getDay()
-  const shift = day === 0 ? -6 : 1 - day
-  d.setDate(d.getDate() + shift)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-const sundayOfWeek = (date) => {
-  const d = mondayOfWeek(date)
-  d.setDate(d.getDate() + 6)
-  d.setHours(23, 59, 59, 999)
-  return d
-}
-
-const asDateInput = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-
-const formatWeekRange = (start, end) => `${fmtDate(start)} to ${fmtDate(end)}`
-
-const weekNumber = (date) => {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7))
-  const week1 = new Date(d.getFullYear(), 0, 4)
-  return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7)
+const calcNet = (row) => {
+  const gross     = (row.daysWorked || 0) * (row.wagePerDay || 0)
+  const deduction = Math.round(gross * (row.deductionPercentage || 0) / 100)
+  return gross - deduction
 }
 
 const notify = (text, color = 'success') => { snack.value = { show: true, text, color } }
@@ -1186,40 +910,6 @@ function askConfirm(message, action) {
   confirmMessage.value = message
   confirmAction.value  = async () => { confirmDialog.value = false; await action() }
   confirmDialog.value  = true
-}
-
-function syncFromTotalWages(row) {
-  if (!hasValue(row.totalWages)) {
-    if (!hasValue(row.daysWorked) && !hasValue(row.wagePerDay)) row.totalWages = null
-    return
-  }
-  const days = toNumber(row.daysWorked)
-  const total = toNumber(row.totalWages)
-  if (days > 0) {
-    row.wagePerDay = round2(total / days)
-  }
-}
-
-function syncFromDaysOrWage(row) {
-  if (!hasValue(row.daysWorked) && !hasValue(row.wagePerDay)) {
-    row.totalWages = null
-    return
-  }
-  row.totalWages = round2(toNumber(row.daysWorked) * toNumber(row.wagePerDay))
-}
-
-function emitPayrollRefresh() {
-  window.dispatchEvent(new CustomEvent('payroll-module-refresh'))
-}
-
-async function refreshPayrollViews() {
-  await Promise.all([loadMonthRuns(selMonth.value, selYear.value), loadEmployeeSummary()])
-  if (activeTab.value === 'employees') await loadEmployees()
-  if (activeTab.value === 'payslip' && payslipData.value && payslipEmpId.value) await loadPayslip()
-}
-
-async function handlePayrollRefresh() {
-  await refreshPayrollViews()
 }
 
 // ── Data Loading ───────────────────────────────────────────────────────────────
@@ -1232,18 +922,14 @@ async function loadEmployees() {
   }
 }
 
-async function loadMonthRuns(month = selMonth.value, year = selYear.value) {
-  const reqId = ++monthRunsRequestSeq
+async function loadMonthRuns() {
   loadingRuns.value = true
   try {
-    const res = await api.get(`/payroll/history/${month}/${year}`)
-    if (reqId !== monthRunsRequestSeq) return
+    const res = await api.get(`/payroll/history/${selMonth.value}/${selYear.value}`)
     monthRuns.value = res.data.data || []
   } catch {
-    if (reqId !== monthRunsRequestSeq) return
     notify('Failed to load salary runs', 'error')
   } finally {
-    if (reqId !== monthRunsRequestSeq) return
     loadingRuns.value = false
   }
 }
@@ -1263,13 +949,13 @@ async function loadEmployeeSummary() {
 
 // ── Watchers ───────────────────────────────────────────────────────────────────
 watch([selMonth, selYear], () => {
-  loadMonthRuns(selMonth.value, selYear.value)
+  loadMonthRuns()
   if (payslipData.value) payslipData.value = null
 })
 
 watch(activeTab, (tab) => {
   if (tab === 'payments') loadEmployeeSummary()
-  if (tab === 'runs')     loadMonthRuns(selMonth.value, selYear.value)
+  if (tab === 'runs')     loadMonthRuns()
 })
 
 // ── Employees ──────────────────────────────────────────────────────────────────
@@ -1298,7 +984,6 @@ async function saveEmployee() {
     }
     empDialog.value = false
     await Promise.all([loadEmployees(), loadEmployeeSummary()])
-    emitPayrollRefresh()
   } catch (e) {
     notify(e.response?.data?.error || 'Failed to save employee', 'error')
   } finally {
@@ -1314,7 +999,6 @@ function confirmDeleteEmp(emp) {
         await api.delete(`/payroll/employees/${emp._id}`)
         notify('Employee deleted')
         await Promise.all([loadEmployees(), loadEmployeeSummary()])
-        emitPayrollRefresh()
       } catch (e) {
         notify(e.response?.data?.error || 'Failed to delete employee', 'error')
       }
@@ -1324,303 +1008,52 @@ function confirmDeleteEmp(emp) {
 
 // ── Salary Runs ────────────────────────────────────────────────────────────────
 const runDialog    = ref(false)
-const runStartMenu = ref(false)
-const runEndMenu = ref(false)
 const selectAllRun = ref(false)
 const runRows      = ref([])
-const weeklyRows   = ref([])
-const weeklyPrefillMap = ref({})
-const runMode      = ref('period')
-const selectedEmployeeId = ref('')
 const runForm      = ref({ periodStart: '', periodEnd: '', runTitle: '' })
 
-const runTotalDays = computed(() =>
-  runRows.value.filter(r => r.selected).reduce((s, r) => s + toNumber(r.daysWorked), 0)
+const runTotalNet = computed(() =>
+  runRows.value.filter(r => r.selected).reduce((s, r) => s + calcNet(r), 0)
 )
-
-const runTotalWages = computed(() =>
-  runRows.value.filter(r => r.selected).reduce((s, r) => s + calcRunAmounts(r).totalWages, 0)
-)
-
-const runTotalFinal = computed(() =>
-  runRows.value.filter(r => r.selected).reduce((s, r) => s + calcRunAmounts(r).finalSalary, 0)
-)
-
-const weeklyTotalDays = computed(() => weeklyRows.value.reduce((s, r) => s + toNumber(r.daysWorked), 0))
-const weeklyTotalWages = computed(() => weeklyRows.value.reduce((s, r) => s + calcRunAmounts(r).totalWages, 0))
-const weeklyTotalFinal = computed(() => weeklyRows.value.reduce((s, r) => s + calcRunAmounts(r).finalSalary, 0))
-
-const selectedEmployee = computed(() => employees.value.find(e => e._id === selectedEmployeeId.value) || null)
-
-function normalizeDateModelValue(value) {
-  if (!value) return ''
-  if (Array.isArray(value)) return normalizeDateModelValue(value[0])
-  const d = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(d.getTime())) return ''
-  return asDateInput(d)
-}
-
-function onPickRunStart(value) {
-  const dateValue = normalizeDateModelValue(value)
-  if (!dateValue) return
-  runForm.value.periodStart = dateValue
-  runStartMenu.value = false
-}
-
-function onPickRunEnd(value) {
-  const dateValue = normalizeDateModelValue(value)
-  if (!dateValue) return
-  runForm.value.periodEnd = dateValue
-  runEndMenu.value = false
-}
 
 function openRunDialog() {
   const mm = String(selMonth.value).padStart(2, '0')
-  const start = `${selYear.value}-${mm}-01`
-  runForm.value = { periodStart: start, periodEnd: nextSunday(start), runTitle: '' }
-  runMode.value = runsView.value === 'employee' ? 'employee' : 'period'
-  selectedEmployeeId.value = employees.value[0]?._id || ''
+  runForm.value = { periodStart: `${selYear.value}-${mm}-01`, periodEnd: `${selYear.value}-${mm}-01`, runTitle: '' }
   runRows.value = employees.value.map(e => ({
     ...e,
-    selected: false,
-    daysWorked: null,
-    wagePerDay: null,
-    deductionPercentage: null,
-    totalWages: null,
-    marketAmount: null,
-    advanceAmount: null,
-    notes: '',
+    selected: false, daysWorked: 0,
+    wagePerDay: e.dailyWage || 0,
+    deductionPercentage: e.deductionPercentage || 0,
   }))
-  weeklyPrefillMap.value = {}
-  weeklyRows.value = []
   selectAllRun.value = false
-  rebuildWeeklyRows()
   runDialog.value = true
-  if (runMode.value === 'employee') {
-    loadWeeklyPrefill()
-  }
 }
 
 function toggleAllRun(val) {
   runRows.value.forEach(r => (r.selected = val))
 }
 
-function rebuildWeeklyRows() {
-  if (runMode.value !== 'employee') {
-    weeklyRows.value = []
-    return
-  }
-
-  const from = runForm.value.periodStart
-  const to = runForm.value.periodEnd
-  if (!from || !to) {
-    weeklyRows.value = []
-    return
-  }
-  const start = new Date(from)
-  const end = new Date(to)
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
-    weeklyRows.value = []
-    return
-  }
-
-  const currentMap = new Map(weeklyRows.value.map(w => [w.weekStart, w]))
-  const prefillMap = weeklyPrefillMap.value || {}
-  const startCursor = mondayOfWeek(start)
-  const output = []
-  for (let cursor = new Date(startCursor); cursor <= end; cursor.setDate(cursor.getDate() + 7)) {
-    const weekStart = asDateInput(mondayOfWeek(cursor))
-    const weekEnd = asDateInput(sundayOfWeek(cursor))
-    const key = weekStart
-    const prefill = prefillMap[key]
-    const prev = currentMap.get(key)
-    output.push(prefill || prev || {
-      weekStart,
-      weekEnd,
-      runId: '',
-      daysWorked: null,
-      wagePerDay: null,
-      totalWages: null,
-      deductionPercentage: null,
-      marketAmount: null,
-      advanceAmount: null,
-      notes: '',
-    })
-  }
-  weeklyRows.value = output
-}
-
-async function loadWeeklyPrefill() {
-  if (runMode.value !== 'employee' || !selectedEmployeeId.value || !runForm.value.periodStart || !runForm.value.periodEnd) {
-    weeklyPrefillMap.value = {}
-    rebuildWeeklyRows()
-    return
-  }
-
-  try {
-    const res = await api.get('/payroll/history-range', {
-      params: {
-        from: runForm.value.periodStart,
-        to: runForm.value.periodEnd,
-        employeeId: selectedEmployeeId.value,
-      },
-    })
-
-    const prefill = {}
-    const runs = res.data?.data || []
-    runs.forEach(run => {
-      const entry = (run.employees || []).find(e => e.employeeId?.toString() === selectedEmployeeId.value)
-      if (!entry) return
-      const key = asDateInput(mondayOfWeek(run.periodStart))
-      prefill[key] = {
-        weekStart: asDateInput(mondayOfWeek(run.periodStart)),
-        weekEnd: asDateInput(sundayOfWeek(run.periodStart)),
-        runId: run._id,
-        daysWorked: entry.daysWorked,
-        wagePerDay: entry.dailyWage,
-        totalWages: entry.totalWages,
-        deductionPercentage: entry.deductionPercentage,
-        marketAmount: entry.marketAmount ?? null,
-        advanceAmount: entry.advanceAmount ?? null,
-        notes: entry.notes || '',
-      }
-    })
-    weeklyPrefillMap.value = prefill
-  } catch {
-    weeklyPrefillMap.value = {}
-  }
-
-  rebuildWeeklyRows()
-}
-
-watch(() => runForm.value.periodStart, (val) => {
-  if (!runDialog.value || !val || runMode.value !== 'period') return
-  runForm.value.periodEnd = nextSunday(val)
-})
-
-watch([runMode, selectedEmployeeId, () => runForm.value.periodStart, () => runForm.value.periodEnd], () => {
-  if (!runDialog.value) return
-  if (runMode.value === 'employee') {
-    loadWeeklyPrefill()
-    return
-  }
-  weeklyPrefillMap.value = {}
-  rebuildWeeklyRows()
-})
-
 async function saveRun() {
   if (!runForm.value.periodStart || !runForm.value.periodEnd)
     return notify('Period dates are required', 'error')
-  const start = new Date(runForm.value.periodStart)
-  const end = new Date(runForm.value.periodEnd)
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()))
-    return notify('Enter valid period dates', 'error')
-  if (start > end)
-    return notify('From date cannot be after to date', 'error')
-
-  if (runMode.value === 'period') {
-    const selected = runRows.value.filter(r => r.selected)
-    if (!selected.length) return notify('Select at least one employee', 'error')
-
-    loading.value = true
-    try {
-      await api.post('/payroll/generate', {
-        month: selMonth.value,
-        year: selYear.value,
-        periodStart: runForm.value.periodStart,
-        periodEnd: runForm.value.periodEnd,
-        runTitle: runForm.value.runTitle,
-        employeeEntries: selected.map(r => ({
-          employeeId: r._id,
-          daysWorked: r.daysWorked,
-          wagePerDay: r.wagePerDay,
-          totalWages: r.totalWages,
-          deductionPercentage: r.deductionPercentage,
-          marketAmount: r.marketAmount,
-          advanceAmount: r.advanceAmount,
-          notes: r.notes || '',
-        })),
-      })
-      runDialog.value = false
-      notify('Salary run created')
-      await refreshPayrollViews()
-      emitPayrollRefresh()
-    } catch (e) {
-      notify(e.response?.data?.error || 'Failed to create run', 'error')
-    } finally {
-      loading.value = false
-    }
-    return
-  }
-
-  if (!selectedEmployeeId.value) return notify('Select one employee', 'error')
-  const rowsToSave = weeklyRows.value.filter(r =>
-    hasValue(r.daysWorked) || hasValue(r.wagePerDay) || hasValue(r.totalWages) || hasValue(r.deductionPercentage) || hasValue(r.marketAmount) || hasValue(r.advanceAmount) || (r.notes || '').trim().length
-  )
-  if (!rowsToSave.length) return notify('Enter payroll values for at least one week', 'error')
+  const selected = runRows.value.filter(r => r.selected)
+  if (!selected.length) return notify('Select at least one employee', 'error')
 
   loading.value = true
   try {
-    const touchedRuns = []
-    for (let i = 0; i < rowsToSave.length; i += 1) {
-      const row = rowsToSave[i]
-      const weekDate = new Date(row.weekStart)
-      const rangeStart = new Date(runForm.value.periodStart)
-      const bucketDate = weekDate < rangeStart ? rangeStart : weekDate
-      const payload = {
-        periodStart: row.weekStart,
-        periodEnd: row.weekEnd,
-        runTitle: runForm.value.runTitle || `Week ${i + 1}`,
-        employeeEntries: [{
-          employeeId: selectedEmployeeId.value,
-          daysWorked: row.daysWorked,
-          wagePerDay: row.wagePerDay,
-          totalWages: row.totalWages,
-          deductionPercentage: row.deductionPercentage,
-          marketAmount: row.marketAmount,
-          advanceAmount: row.advanceAmount,
-          notes: row.notes || '',
-        }],
-      }
-
-      if (row.runId) {
-        const res = await api.put(`/payroll/history/${row.runId}`, payload)
-        if (res?.data?.data) touchedRuns.push(res.data.data)
-      } else {
-        const res = await api.post('/payroll/generate', {
-          month: bucketDate.getMonth() + 1,
-          year: bucketDate.getFullYear(),
-          ...payload,
-        })
-        if (res?.data?.data) touchedRuns.push(res.data.data)
-      }
-    }
-
-    if (touchedRuns.length) {
-      const map = new Map(monthRuns.value.map(r => [r._id, r]))
-      touchedRuns.forEach(run => {
-        if (Number(run.month) === Number(selMonth.value) && Number(run.year) === Number(selYear.value)) {
-          map.set(run._id, run)
-        }
-      })
-      monthRuns.value = Array.from(map.values()).sort((a, b) => new Date(a.periodStart) - new Date(b.periodStart))
-    }
-
-    const firstWeek = rowsToSave[0]
-    if (firstWeek?.weekStart) {
-      const firstDate = new Date(runForm.value.periodStart)
-      if (!Number.isNaN(firstDate.getTime())) {
-        selMonth.value = firstDate.getMonth() + 1
-        selYear.value = firstDate.getFullYear()
-      }
-    }
-
+    await api.post('/payroll/generate', {
+      month: selMonth.value, year: selYear.value,
+      periodStart: runForm.value.periodStart,
+      periodEnd:   runForm.value.periodEnd,
+      runTitle:    runForm.value.runTitle,
+      employeeEntries: selected.map(r => ({
+        employeeId: r._id, daysWorked: r.daysWorked,
+        wagePerDay: r.wagePerDay, deductionPercentage: r.deductionPercentage,
+      })),
+    })
     runDialog.value = false
-    notify('Employee weekly salary runs created')
-    runsView.value = 'employee'
-    activeTab.value = 'runs'
-    await refreshPayrollViews()
-    emitPayrollRefresh()
+    notify('Salary run created')
+    await Promise.all([loadMonthRuns(), loadEmployeeSummary()])
   } catch (e) {
     notify(e.response?.data?.error || 'Failed to create run', 'error')
   } finally {
@@ -1635,11 +1068,8 @@ function confirmDeleteRun(run) {
     async () => {
       try {
         await api.delete(`/payroll/history/${run._id}`)
-        // Reflect delete instantly in the current list before server refresh completes.
-        monthRuns.value = monthRuns.value.filter(r => r._id !== run._id)
         notify('Salary run deleted')
-        await refreshPayrollViews()
-        emitPayrollRefresh()
+        await Promise.all([loadMonthRuns(), loadEmployeeSummary()])
       } catch (e) {
         notify(e.response?.data?.error || 'Failed to delete run', 'error')
       }
@@ -1666,18 +1096,9 @@ function openEditRunDialog(run) {
     name:                e.name,
     daysWorked:          e.daysWorked,
     wagePerDay:          e.dailyWage,
-    totalWages:          e.totalWages || 0,
     deductionPercentage: e.deductionPercentage,
-    marketAmount:        e.marketAmount || 0,
-    advanceAmount:       e.advanceAmount || 0,
   }))
   editRunDialog.value = true
-}
-
-function openEditRunById(runId) {
-  const run = monthRuns.value.find(r => r._id === runId)
-  if (!run) return
-  openEditRunDialog(run)
 }
 
 async function saveEditRun() {
@@ -1693,16 +1114,12 @@ async function saveEditRun() {
         employeeId:          r.employeeId,
         daysWorked:          r.daysWorked,
         wagePerDay:          r.wagePerDay,
-        totalWages:          r.totalWages,
         deductionPercentage: r.deductionPercentage,
-        marketAmount:        r.marketAmount,
-        advanceAmount:       r.advanceAmount,
       })),
     })
     editRunDialog.value = false
     notify('Salary run updated')
-    await refreshPayrollViews()
-    emitPayrollRefresh()
+    await Promise.all([loadMonthRuns(), loadEmployeeSummary()])
   } catch (e) {
     notify(e.response?.data?.error || 'Failed to update run', 'error')
   } finally {
@@ -1734,8 +1151,7 @@ async function recordPayment() {
     })
     payDialog.value = false
     notify('Payment recorded')
-    await refreshPayrollViews()
-    emitPayrollRefresh()
+    await Promise.all([loadEmployeeSummary(), loadMonthRuns()])
   } catch (e) {
     notify(e.response?.data?.error || 'Failed to record payment', 'error')
   } finally {
@@ -1766,8 +1182,7 @@ async function recordDeductReturn() {
     })
     deductDialog.value = false
     notify('Deduction return recorded')
-    await refreshPayrollViews()
-    emitPayrollRefresh()
+    await loadEmployeeSummary()
   } catch (e) {
     notify(e.response?.data?.error || 'Failed to record deduction return', 'error')
   } finally {
@@ -1802,13 +1217,9 @@ const payslipSummaryRows = computed(() => {
   const d = payslipData.value
   return [
     { label: 'Carry Forward Pending',     value: d.carryForwardPending, cls: d.carryForwardPending > 0 ? 'text-error' : '' },
-    { label: 'Deduction Balance Pending', value: d.deductionBalancePending, cls: d.deductionBalancePending > 0 ? 'text-error' : '' },
     { label: 'Gross Salary (this month)', value: d.totalWages,          cls: '' },
     { label: 'Deduction Amount',          value: d.deductionAmount,     cls: 'text-error' },
-    { label: 'Market Amount',             value: d.marketAmount,        cls: 'text-error' },
-    { label: 'Advance Amount',            value: d.advanceAmount,       cls: 'text-error' },
     { label: 'Net Salary (this month)',   value: d.netSalary,           cls: '' },
-    { label: 'Final Salary (this month)', value: d.finalSalary,         cls: '' },
     { label: 'Salary Paid',              value: d.amountPaid,          cls: 'text-success' },
     { label: 'Deduction Returned',        value: d.deductionReturned,   cls: 'text-warning' },
     { label: 'Closing Pending',          value: d.amountPending,       cls: d.amountPending > 0 ? 'text-error' : 'text-success' },
@@ -1829,7 +1240,7 @@ async function loadPayslip() {
     const empInfo = employees.value.find(e => e._id === payslipEmpId.value)
 
     const entries = []
-    let totalWages = 0, deductionAmount = 0, marketAmount = 0, advanceAmount = 0, netSalary = 0, finalSalary = 0, amountPaid = 0, deductionReturned = 0, currentMonthPending = 0
+    let totalWages = 0, deductionAmount = 0, netSalary = 0, amountPaid = 0, deductionReturned = 0, currentMonthPending = 0
 
     runs.forEach(run => {
       // Only include runs whose period START falls within the selected month
@@ -1840,35 +1251,24 @@ async function loadPayslip() {
       entries.push({
         periodStart: run.periodStart, periodEnd: run.periodEnd,
         daysWorked: entry.daysWorked, dailyWage: entry.dailyWage,
-        totalWages: entry.totalWages,
-        deductionAmount: entry.deductionAmount,
-        marketAmount: entry.marketAmount || 0,
-        advanceAmount: entry.advanceAmount || 0,
-        netSalary: entry.netSalary,
-        finalSalary: entry.finalSalary ?? entry.netSalary,
+        totalWages: entry.totalWages, deductionAmount: entry.deductionAmount, netSalary: entry.netSalary,
       })
       totalWages          += entry.totalWages       || 0
       deductionAmount     += entry.deductionAmount  || 0
-      marketAmount        += entry.marketAmount     || 0
-      advanceAmount       += entry.advanceAmount    || 0
       netSalary           += entry.netSalary        || 0
-      finalSalary         += (entry.finalSalary ?? entry.netSalary) || 0
       amountPaid          += entry.amountPaid       || 0
       deductionReturned   += entry.deductionPaidBack || 0
       currentMonthPending += entry.amountPending    || 0
     })
 
     const carryForwardPending = Math.max(0, (empSum?.totalPending || 0) - currentMonthPending)
-    const deductionBalancePending = Math.max(0, Number(empSum?.deductionBalance) || (deductionAmount - deductionReturned))
-    const closingPending = carryForwardPending + currentMonthPending + deductionBalancePending
 
     payslipData.value = {
       name: empInfo?.name || 'Employee',
-      entries, totalWages, deductionAmount, marketAmount, advanceAmount, netSalary, finalSalary, amountPaid, deductionReturned,
+      entries, totalWages, deductionAmount, netSalary, amountPaid, deductionReturned,
       carryForwardPending,
-      deductionBalancePending,
-      amountPending: closingPending,
-      paymentStatus: closingPending <= 0 ? 'paid' : amountPaid > 0 ? 'partial' : 'pending',
+      amountPending: carryForwardPending + currentMonthPending,
+      paymentStatus: currentMonthPending <= 0 ? 'paid' : amountPaid > 0 ? 'partial' : 'pending',
     }
   } catch {
     notify('Failed to generate payslip', 'error')
@@ -1935,11 +1335,6 @@ async function sendViaWhatsApp() {
 // ── Init ───────────────────────────────────────────────────────────────────────
 onMounted(async () => {
   await Promise.all([loadEmployees(), loadMonthRuns(), loadEmployeeSummary()])
-  window.addEventListener('payroll-module-refresh', handlePayrollRefresh)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('payroll-module-refresh', handlePayrollRefresh)
 })
 </script>
 
@@ -2190,30 +1585,11 @@ onBeforeUnmount(() => {
   padding-top: 8px !important;
   padding-bottom: 8px !important;
   line-height: 1.2;
-  white-space: nowrap;
-}
-.run-input-table :deep(.v-table__wrapper) {
-  overflow-x: auto;
-}
-.run-input-table :deep(table) {
-  table-layout: auto;
-  min-width: 1080px;
-}
-.run-input-table--weekly :deep(table) {
-  min-width: 1120px;
 }
 .run-input-table :deep(tbody td) { vertical-align: middle; }
 .run-input-table :deep(tbody td) {
   padding-top: 7px !important;
   padding-bottom: 7px !important;
-}
-.run-input-table :deep(tbody td:first-child) {
-  white-space: nowrap;
-}
-.run-input-table :deep(tfoot td) {
-  vertical-align: middle;
-  border-top: 1px solid #dfe5ef;
-  white-space: nowrap;
 }
 .run-input-table :deep(tbody tr:first-child td) { padding-top: 10px !important; }
 .run-input-table :deep(tbody tr td) { border-bottom: 1px solid #e9edf4; }
@@ -2224,47 +1600,6 @@ onBeforeUnmount(() => {
 .run-cell-input { min-width: 104px; }
 .run-cell-input--sm { min-width: 92px; }
 .run-cell-input--xs { min-width: 82px; }
-
-.run-total-row td {
-  background: #f5f8fe;
-  text-align: center;
-}
-
-.run-total-row .run-total-label {
-  text-align: left;
-}
-
-.run-total-row .run-total-value {
-  text-align: center;
-}
-
-.week-range {
-  font-weight: 700;
-  color: #263238;
-  white-space: nowrap;
-}
-
-.week-meta {
-  font-size: 11px;
-  color: #607d8b;
-  margin-top: 2px;
-}
-
-/* Date picker alignment inside run dialog */
-:deep(.v-date-picker-month__weekday) {
-  text-align: center;
-}
-:deep(.v-date-picker-month__day) {
-  display: flex;
-  justify-content: center;
-}
-:deep(.v-date-picker-month__day-btn) {
-  margin: 0;
-}
-:deep(.v-date-picker-month__weeknumber) {
-  text-align: center;
-  color: #607d8b;
-}
 
 /* ══ Payslip Document ════════════════════════════════════════════════ */
 .payslip-doc {

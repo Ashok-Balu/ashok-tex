@@ -8,33 +8,14 @@ const toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; }
 const startOfDay = (v) => { const d = new Date(v); d.setHours(0, 0, 0, 0); return d; };
 const endOfDay   = (v) => { const d = new Date(v); d.setHours(23, 59, 59, 999); return d; };
 
-const calcAmounts = ({ daysWorked, dailyWage, totalWages, deductionPercentage, marketAmount, advanceAmount }) => {
-  const days            = toNum(daysWorked);
-  let wage              = toNum(dailyWage);
-  const deductPct       = toNum(deductionPercentage);
-  const explicitWages   = toNum(totalWages);
-  const resolvedWages   = explicitWages > 0 ? explicitWages : (days * wage);
-  const roundedWages    = Math.round(resolvedWages * 100) / 100;
-  if (explicitWages > 0 && days > 0) {
-    wage = Math.round((roundedWages / days) * 100) / 100;
-  }
-  const market          = toNum(marketAmount);
-  const advance         = toNum(advanceAmount);
-  const totalWagesValue = roundedWages;
-  const deductionAmount = Math.round((totalWagesValue * deductPct) / 100);
-  const netSalary       = totalWagesValue - deductionAmount;
-  const finalSalary     = Math.max(0, netSalary - market - advance);
-  return {
-    daysWorked: days,
-    dailyWage: wage,
-    deductionPercentage: deductPct,
-    totalWages: totalWagesValue,
-    deductionAmount,
-    netSalary,
-    marketAmount: market,
-    advanceAmount: advance,
-    finalSalary,
-  };
+const calcAmounts = ({ daysWorked, dailyWage, deductionPercentage }) => {
+  const days      = toNum(daysWorked);
+  const wage      = toNum(dailyWage);
+  const deductPct = toNum(deductionPercentage);
+  const totalWages      = days * wage;
+  const deductionAmount = Math.round((totalWages * deductPct) / 100);
+  const netSalary       = totalWages - deductionAmount;
+  return { daysWorked: days, dailyWage: wage, deductionPercentage: deductPct, totalWages, deductionAmount, netSalary };
 };
 
 let indexChecked = false;
@@ -65,7 +46,7 @@ router.get('/employees/summary', auth, async (req, res) => {
       payrolls.forEach(p => {
         const entry = p.employees.find(e => e.employeeId?.toString() === id);
         if (!entry) return;
-        totalNet               += toNum(entry.finalSalary || entry.netSalary);
+        totalNet               += toNum(entry.netSalary);
         totalPaid              += toNum(entry.amountPaid);
         totalPending           += toNum(entry.amountPending);
         totalDeductionAmount   += toNum(entry.deductionAmount);
@@ -84,7 +65,6 @@ router.get('/employees/summary', auth, async (req, res) => {
         totalPending,
         totalDeductionAmount,
         totalDeductionReturned,
-        totalFinalSalary: totalNet,
         deductionBalance: Math.max(0, totalDeductionAmount - totalDeductionReturned),
       };
     });
@@ -186,7 +166,6 @@ router.post('/generate', auth, async (req, res) => {
       const amounts = calcAmounts({
         daysWorked:          input.daysWorked,
         dailyWage:           input.wagePerDay ?? emp.dailyWage,
-        totalWages:          input.totalWages,
         deductionPercentage: input.deductionPercentage ?? emp.deductionPercentage,
         marketAmount:        input.marketAmount,
         advanceAmount:       input.advanceAmount,
@@ -197,7 +176,7 @@ router.post('/generate', auth, async (req, res) => {
         ...amounts,
         paymentStatus:     'pending',
         amountPaid:        0,
-        amountPending:     amounts.finalSalary,
+        amountPending:     amounts.netSalary,
         deductionPaidBack: 0,
         notes:             input.notes || '',
       };
@@ -228,39 +207,6 @@ router.get('/history/:month/:year', auth, async (req, res) => {
       month: parseInt(req.params.month),
       year:  parseInt(req.params.year),
     }).sort({ periodStart: 1, _id: 1 }).lean();
-    res.json({ success: true, data: payrolls });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-// Runs overlapping a custom date range (used for weekly prefill/edit)
-router.get('/history-range', auth, async (req, res) => {
-  try {
-    const { from, to, employeeId } = req.query;
-    if (!from || !to) {
-      return res.status(400).json({ success: false, error: 'from and to query params are required' });
-    }
-
-    const fromDate = startOfDay(from);
-    const toDate = endOfDay(to);
-    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
-      return res.status(400).json({ success: false, error: 'Invalid date range' });
-    }
-
-    const query = {
-      periodStart: { $lte: toDate },
-      periodEnd: { $gte: fromDate },
-    };
-
-    if (employeeId) {
-      query['employees.employeeId'] = employeeId;
-    }
-
-    const payrolls = await db.Payroll.find(query)
-      .sort({ periodStart: 1, _id: 1 })
-      .lean();
-
     res.json({ success: true, data: payrolls });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -303,13 +249,10 @@ router.put('/history/:payrollId', auth, async (req, res) => {
         const amounts     = calcAmounts({
           daysWorked:          input.daysWorked,
           dailyWage:           input.wagePerDay,
-          totalWages:          input.totalWages,
           deductionPercentage: input.deductionPercentage,
-          marketAmount:        input.marketAmount,
-          advanceAmount:       input.advanceAmount,
         });
         const amountPaid    = toNum(emp.amountPaid);
-        const amountPending = Math.max(0, amounts.finalSalary - amountPaid);
+        const amountPending = Math.max(0, amounts.netSalary - amountPaid);
         const paymentStatus = amountPending === 0 ? 'paid' : amountPaid > 0 ? 'partial' : 'pending';
         return { ...emp.toObject(), ...amounts, amountPaid, amountPending, paymentStatus };
       });
@@ -341,11 +284,7 @@ router.get('/pending', auth, async (req, res) => {
             periodEnd:         p.periodEnd,
             employeeId:        emp.employeeId,
             name:              emp.name || 'Unknown',
-            totalWages:        toNum(emp.totalWages),
             netSalary:         toNum(emp.netSalary),
-            marketAmount:      toNum(emp.marketAmount),
-            advanceAmount:     toNum(emp.advanceAmount),
-            finalSalary:       toNum(emp.finalSalary || emp.netSalary),
             amountPaid:        toNum(emp.amountPaid),
             amountPending,
             deductionAmount:   toNum(emp.deductionAmount),
