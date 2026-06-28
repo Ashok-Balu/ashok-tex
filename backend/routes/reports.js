@@ -2,7 +2,7 @@ const router   = require('express').Router()
 const ah       = require('express-async-handler')
 const auth     = require('../middleware/auth')
 const mongoose = require('mongoose')
-const { Payment, Production, Expense, Company, Order } = require('../models')
+const { Payment, PaymentAllocation, Production, Expense, Company, Order } = require('../models')
 
 router.use(auth)
 
@@ -16,13 +16,18 @@ function getRange(req) {
 // GET /api/reports/monthly-payment-by-company
 router.get('/monthly-payment-by-company', ah(async (req, res) => {
   const { from, to } = getRange(req)
-  const [companies, receivedAgg, orderAgg] = await Promise.all([
+  const [companies, receivedAgg, allocatedAgg, orderAgg] = await Promise.all([
     Company.find({}, 'name'),
     Payment.aggregate([
       { $match: { date: { $gte: from, $lte: to }, transactionType: { $ne: 'deduction' } } },
       { $group: { _id: '$company', received: { $sum: '$amount' } } },
     ]),
+    PaymentAllocation.aggregate([
+      { $match: { date: { $gte: from, $lte: to } } },
+      { $group: { _id: '$company', allocated: { $sum: '$amount' } } },
+    ]),
     Order.aggregate([
+      { $match: { archived: { $ne: true } } },
       {
         $group: {
           _id: '$company',
@@ -30,7 +35,12 @@ router.get('/monthly-payment-by-company', ah(async (req, res) => {
           deduction: {
             $sum: {
               $multiply: [
-                { $ifNull: ['$producedMeter', 0] },
+                {
+                  $ifNull: [
+                    '$acceptedMeter',
+                    { $max: [0, { $subtract: [{ $ifNull: ['$producedMeter', 0] }, { $ifNull: ['$rejectedMeter', 0] }] }] },
+                  ],
+                },
                 { $ifNull: ['$ratePerMeter', 0] },
                 { $divide: [{ $ifNull: ['$deductionPct', 0] }, 100] },
               ],
@@ -43,13 +53,16 @@ router.get('/monthly-payment-by-company', ah(async (req, res) => {
 
   const nameMap = new Map(companies.map(c => [String(c._id), c.name]))
   const receivedMap = new Map(receivedAgg.map(r => [String(r._id), r.received || 0]))
+  const allocatedMap = new Map(allocatedAgg.map(r => [String(r._id), r.allocated || 0]))
   const orderMap = new Map(orderAgg.map(r => [String(r._id), { orders: r.orders || 0, deduction: r.deduction || 0 }]))
-  const keys = new Set([...nameMap.keys(), ...receivedMap.keys(), ...orderMap.keys()])
+  const keys = new Set([...nameMap.keys(), ...receivedMap.keys(), ...allocatedMap.keys(), ...orderMap.keys()])
 
   const rows = Array.from(keys).map(id => ({
     company: nameMap.get(id) || 'Unknown',
     orders: orderMap.get(id)?.orders || 0,
     received: receivedMap.get(id) || 0,
+    allocated: allocatedMap.get(id) || 0,
+    unallocated: Math.max(0, (receivedMap.get(id) || 0) - (allocatedMap.get(id) || 0)),
     deduction: orderMap.get(id)?.deduction || 0,
   }))
 
@@ -69,7 +82,7 @@ router.get('/company-order-statement', ah(async (req, res) => {
   const [company, orders] = await Promise.all([
     Company.findById(companyObjectId).select('name'),
     Order.find({ company: companyObjectId })
-      .select('orderName status expectedMeter ratePerMeter deductionPct')
+      .select('orderName status expectedMeter ratePerMeter deductionPct rejectedMeter')
       .sort({ createdAt: 1 }),
   ])
 
@@ -95,12 +108,11 @@ router.get('/company-order-statement', ah(async (req, res) => {
       { $match: { order: { $in: orderIds }, date: { $lt: from } } },
       { $group: { _id: '$order', produced: { $sum: '$meter' } } },
     ]),
-    Payment.aggregate([
+    PaymentAllocation.aggregate([
       {
         $match: {
-          company: companyObjectId,
+          order: { $in: orderIds },
           date: { $lte: to },
-          transactionType: { $ne: 'deduction' },
         },
       },
       { $group: { _id: null, paid: { $sum: '$amount' } } },
@@ -112,9 +124,11 @@ router.get('/company-order-statement', ah(async (req, res) => {
 
   const previousPayableTotal = orders.reduce((sum, order) => {
     const producedBefore = producedBeforeMap.get(String(order._id)) || 0
+    const rejected = Number(order.rejectedMeter || 0)
+    const acceptedBefore = Math.max(0, producedBefore - rejected)
     const rate = Number(order.ratePerMeter || 0)
     const deductionPct = Number(order.deductionPct || 0)
-    const totalBefore = producedBefore * rate
+    const totalBefore = acceptedBefore * rate
     const deductionBefore = totalBefore * (deductionPct / 100)
     return sum + (totalBefore - deductionBefore)
   }, 0)
@@ -124,9 +138,10 @@ router.get('/company-order-statement', ah(async (req, res) => {
 
   const rows = orders.map(order => {
     const produced = producedInRangeMap.get(String(order._id)) || 0
+    const accepted = Math.max(0, produced - Number(order.rejectedMeter || 0))
     const ratePerMeter = Number(order.ratePerMeter || 0)
     const deductionPct = Number(order.deductionPct || 0)
-    const totalAmount = produced * ratePerMeter
+    const totalAmount = accepted * ratePerMeter
     const deductionAmt = totalAmount * (deductionPct / 100)
     const payableAmount = totalAmount - deductionAmt
 
@@ -135,6 +150,8 @@ router.get('/company-order-statement', ah(async (req, res) => {
       orderState: order.status || 'active',
       expectedQuantity: Number(order.expectedMeter || 0),
       produced: Number(produced.toFixed(2)),
+      accepted: Number(accepted.toFixed(2)),
+      rejected: Number(Math.max(0, Number(order.rejectedMeter || 0)).toFixed(2)),
       ratePerMeter,
       totalAmount: Number(totalAmount.toFixed(2)),
       deductionPct,
