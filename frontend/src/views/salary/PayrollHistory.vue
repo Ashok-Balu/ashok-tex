@@ -505,6 +505,7 @@ const submitPayment = async () => {
   if (ok) {
     payDialog.value = false
     await fetchData()
+    window.dispatchEvent(new CustomEvent('payroll-module-refresh'))
   }
 }
 
@@ -563,10 +564,12 @@ onMounted(() => {
   fetchData()
   store.fetchEmployees()
   window.addEventListener('payroll-refresh-history', fetchData)
+  window.addEventListener('payroll-module-refresh', fetchData)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('payroll-refresh-history', fetchData)
+  window.removeEventListener('payroll-module-refresh', fetchData)
 })
 </script>
 

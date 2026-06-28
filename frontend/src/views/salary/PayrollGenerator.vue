@@ -331,6 +331,7 @@ const generateSalary = async () => {
   if (payroll) {
     await store.fetchPending()
     await fetchSummary()
+    window.dispatchEvent(new CustomEvent('payroll-module-refresh'))
     window.dispatchEvent(new CustomEvent('tab-change', { detail: 'history' }))
   } else {
     genError.value = store.error || 'Failed to generate salary'
