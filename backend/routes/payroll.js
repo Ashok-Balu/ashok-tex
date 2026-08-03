@@ -1,629 +1,931 @@
 const express = require('express');
-const router = express.Router();
-const db = require('../models');
-const auth = require('../middleware/auth');
-const { uploadPayslipPdf, isCloudinaryConfigured } = require('../cloudinary');
+const router  = express.Router();
+const db      = require('../models');
+const auth    = require('../middleware/auth');
 
-const toNum = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
+const toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
+const startOfDay = (v) => { const d = new Date(v); d.setHours(0, 0, 0, 0); return d; };
+const endOfDay   = (v) => { const d = new Date(v); d.setHours(23, 59, 59, 999); return d; };
+
+const machineWageFieldByCount = {
+  3: 'machine3Wage',
+  4: 'machine4Wage',
+  5: 'machine5Wage',
+  6: 'machine6Wage',
+  7: 'machine7Wage',
+  8: 'machine8Wage',
+  9: 'machine9Wage',
+  10: 'machine10Wage',
+  11: 'machine11Wage',
+  12: 'machine12Wage',
+  13: 'machine13Wage',
+  14: 'machine14Wage',
+  15: 'machine15Wage',
 };
 
-const startOfDay = (value) => {
-  const d = new Date(value);
-  d.setHours(0, 0, 0, 0);
-  return d;
+const sanitizeDailyEntries = (dailyEntries) => {
+  if (!Array.isArray(dailyEntries)) return [];
+  return dailyEntries
+    .map((entry) => {
+      const dt = startOfDay(entry?.date || new Date());
+      return {
+        date: dt,
+        machineCount: Math.max(0, Math.round(toNum(entry?.machineCount))),
+        wage: Math.max(0, Math.round(toNum(entry?.wage))),
+        wageSource: entry?.wageSource === 'manual' ? 'manual' : 'master',
+        masterConfigId: entry?.masterConfigId || null,
+      };
+    })
+    .filter((entry) => !isNaN(entry.date.getTime()));
 };
 
-const endOfDay = (value) => {
-  const d = new Date(value);
-  d.setHours(23, 59, 59, 999);
-  return d;
+const deriveTotalsFromDailyEntries = (dailyEntries) => {
+  const rows = sanitizeDailyEntries(dailyEntries);
+  if (!rows.length) return { daysWorked: 0, totalWages: 0, avgWage: 0 };
+  const daysWorked = rows.reduce((sum, row) => sum + (row.machineCount > 0 ? 1 : 0), 0);
+  const totalWages = rows.reduce((sum, row) => sum + toNum(row.wage), 0);
+  const avgWage = daysWorked > 0 ? Math.round((totalWages / daysWorked) * 100) / 100 : 0;
+  return { daysWorked, totalWages, avgWage };
 };
 
-const sameMonthYear = (date, month, year) => {
-  const d = new Date(date);
-  return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year);
-};
-
-const calcPayrollAmounts = ({ daysWorked, dailyWage, deductionPercentage }) => {
-  const cleanDays = toNum(daysWorked);
-  const cleanWage = toNum(dailyWage);
-  const cleanDeductionPct = toNum(deductionPercentage);
-  const totalWages = cleanDays * cleanWage;
-  const deductionAmount = Math.round((totalWages * cleanDeductionPct) / 100);
-  const netSalary = totalWages - deductionAmount;
+const calcAmounts = ({ daysWorked, dailyWage, totalWages, deductionPercentage, marketAmount, advanceAmount, dailyEntries }) => {
+  const derived         = deriveTotalsFromDailyEntries(dailyEntries);
+  const explicitDays    = toNum(daysWorked);
+  const days            = explicitDays > 0 ? explicitDays : derived.daysWorked;
+  let wage              = toNum(dailyWage);
+  const deductPct       = toNum(deductionPercentage);
+  const explicitWages   = toNum(totalWages);
+  const resolvedWages   = explicitWages > 0
+    ? explicitWages
+    : (derived.totalWages > 0 ? derived.totalWages : (days * wage));
+  const roundedWages    = Math.round(resolvedWages * 100) / 100;
+  if (explicitWages > 0 && days > 0) {
+    wage = Math.round((roundedWages / days) * 100) / 100;
+  } else if (!wage && derived.avgWage > 0) {
+    wage = derived.avgWage;
+  }
+  const market          = toNum(marketAmount);
+  const advance         = toNum(advanceAmount);
+  const totalWagesValue = roundedWages;
+  const deductionAmount = Math.round((totalWagesValue * deductPct) / 100);
+  const netSalary       = totalWagesValue - deductionAmount;
+  const finalSalary     = Math.max(0, netSalary - market - advance);
   return {
-    daysWorked: cleanDays,
-    dailyWage: cleanWage,
-    deductionPercentage: cleanDeductionPct,
-    totalWages,
+    daysWorked: days,
+    dailyWage: wage,
+    deductionPercentage: deductPct,
+    totalWages: totalWagesValue,
     deductionAmount,
     netSalary,
+    marketAmount: market,
+    advanceAmount: advance,
+    finalSalary,
   };
 };
 
-const normalizePhone = (phone) => {
-  const digits = String(phone || '').replace(/\D/g, '');
-  if (!digits) return '';
-  if (digits.length === 10) return `91${digits}`;
-  if (digits.startsWith('00')) return digits.slice(2);
-  return digits;
-};
-
-const isWhatsAppConfigured = () => Boolean(
-  process.env.WHATSAPP_ACCESS_TOKEN &&
-  process.env.WHATSAPP_PHONE_NUMBER_ID
-);
-
-async function sendWhatsAppDocument({ to, link, fileName, caption }) {
-  const response = await fetch(
-    `https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to,
-        type: 'document',
-        document: {
-          link,
-          filename: fileName,
-          caption,
-        },
-      }),
-    }
-  );
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data?.error?.message || 'Failed to send WhatsApp document');
-  }
-  return data;
-}
-
-let payrollIndexChecked = false;
-async function ensureNoLegacyUniquePayrollIndex() {
-  if (payrollIndexChecked) return;
-  payrollIndexChecked = true;
-
+let indexChecked = false;
+async function ensureNoLegacyIndex() {
+  if (indexChecked) return;
+  indexChecked = true;
   try {
     const indexes = await db.Payroll.collection.indexes();
-    const legacy = indexes.find(idx => idx?.name === 'month_1_year_1' && idx?.unique);
-    if (legacy) {
-      await db.Payroll.collection.dropIndex('month_1_year_1');
-    }
-  } catch (error) {
-    // Non-fatal: app can continue even if index drop is not needed/possible.
-  }
+    const legacy  = indexes.find(i => i?.name === 'month_1_year_1' && i?.unique);
+    if (legacy) await db.Payroll.collection.dropIndex('month_1_year_1');
+  } catch (_) {}
 }
 
-// POST: Add new employee
-router.post('/employees', auth, async (req, res) => {
+// ── Employees ─────────────────────────────────────────────────────────────────
+
+// Employee totals summary (pending, paid, deduction balance across all time)
+router.get('/employees/summary', auth, async (req, res) => {
   try {
-    const { name, deductionPercentage, phone } = req.body;
+    const [employees, payrolls] = await Promise.all([
+      db.Employee.find({ status: 'active' }).lean(),
+      db.Payroll.find({}).select('employees').lean(),
+    ]);
 
-    if (!name) {
-      return res.status(400).json({ success: false, error: 'Employee name is required' });
-    }
+    const summary = employees.map(emp => {
+      const id = emp._id.toString();
+      let totalNet = 0, totalPaid = 0, totalPending = 0, totalDeductionAmount = 0, totalDeductionReturned = 0;
 
-    const employee = new db.Employee({
-      name,
-      phone: phone || '',
-      employeeId: `EMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      dailyWage: 0,
-      deductionPercentage,
-      status: 'active',
-      createdAt: new Date()
+      payrolls.forEach(p => {
+        const entry = p.employees.find(e => e.employeeId?.toString() === id);
+        if (!entry) return;
+        totalNet               += toNum(entry.finalSalary || entry.netSalary);
+        totalPaid              += toNum(entry.amountPaid);
+        totalPending           += toNum(entry.amountPending);
+        totalDeductionAmount   += toNum(entry.deductionAmount);
+        totalDeductionReturned += toNum(entry.deductionPaidBack);
+      });
+
+      return {
+        _id:                  emp._id,
+        name:                 emp.name,
+        phone:                emp.phone,
+        dailyWage:            emp.dailyWage,
+        deductionPercentage:  emp.deductionPercentage,
+        status:               emp.status,
+        totalNet,
+        totalPaid,
+        totalPending,
+        totalDeductionAmount,
+        totalDeductionReturned,
+        totalFinalSalary: totalNet,
+        deductionBalance: Math.max(0, totalDeductionAmount - totalDeductionReturned),
+      };
     });
 
-    await employee.save();
-    res.status(201).json({ success: true, data: employee });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+    res.json({ success: true, data: summary });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// GET: All employees
 router.get('/employees', auth, async (req, res) => {
   try {
-    const employees = await db.Employee.find({ status: 'active' });
+    const employees = await db.Employee.find({ status: 'active' }).lean();
     res.json({ success: true, data: employees });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// PUT: Update employee
+router.post('/employees', auth, async (req, res) => {
+  try {
+    const { name, phone, currentDefaultDailyWage, deductionType, deductionValue } = req.body;
+    if (!name) return res.status(400).json({ success: false, error: 'Employee name is required' });
+    const employee = new db.Employee({
+      name,
+      phone:                   phone || '',
+      currentDefaultDailyWage: toNum(currentDefaultDailyWage),
+      deductionType:           deductionType || 'percentage',
+      deductionValue:          toNum(deductionValue),
+      status:                  'active',
+    });
+    await employee.save();
+    res.status(201).json({ success: true, data: employee });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
 router.put('/employees/:id', auth, async (req, res) => {
   try {
-    const { name, deductionPercentage, phone } = req.body;
+    const { name, phone, currentDefaultDailyWage, deductionType, deductionValue } = req.body;
     const employee = await db.Employee.findByIdAndUpdate(
       req.params.id,
-      { name, deductionPercentage, phone: phone || '' },
+      { name, phone: phone || '', currentDefaultDailyWage: toNum(currentDefaultDailyWage), deductionType: deductionType || 'percentage', deductionValue: toNum(deductionValue) },
       { new: true }
     );
+    if (!employee) return res.status(404).json({ success: false, error: 'Employee not found' });
     res.json({ success: true, data: employee });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
   }
 });
 
-// DELETE: Hard delete employee + all related payroll/payment data
 router.delete('/employees/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
-
     const employee = await db.Employee.findById(id);
-    if (!employee) {
-      return res.status(404).json({ success: false, error: 'Employee not found' });
-    }
+    if (!employee) return res.status(404).json({ success: false, error: 'Employee not found' });
 
-    // 1. Delete all payment history records for this employee
     await db.PaymentHistory.deleteMany({ employeeId: id });
-
-    // 2. Remove this employee's entry from every payroll document
     await db.Payroll.updateMany(
       { 'employees.employeeId': id },
       { $pull: { employees: { employeeId: id } } }
     );
-
-    // 3. Remove any payroll documents that are now empty
     await db.Payroll.deleteMany({ employees: { $size: 0 } });
-
-    // 4. Hard delete the employee
     await db.Employee.findByIdAndDelete(id);
 
-    res.json({ success: true, message: 'Employee and all related data deleted.' });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
   }
 });
 
-// POST: Generate payroll (only for selected employees)
+// ── Machine Wage Master ──────────────────────────────────────────────────────
+
+const machineWageKeys = [
+  'machine3Wage',
+  'machine4Wage',
+  'machine5Wage',
+  'machine6Wage',
+  'machine7Wage',
+  'machine8Wage',
+  'machine9Wage',
+  'machine10Wage',
+  'machine11Wage',
+  'machine12Wage',
+  'machine13Wage',
+  'machine14Wage',
+  'machine15Wage',
+];
+
+const MACHINE_MIN_COUNT = 3;
+const MACHINE_MAX_COUNT = 15;
+
+function expandRangesToMachineMap(ranges = []) {
+  const map = {};
+  for (let mc = MACHINE_MIN_COUNT; mc <= MACHINE_MAX_COUNT; mc += 1) {
+    map[mc] = 0;
+  }
+  if (!Array.isArray(ranges)) return map;
+  ranges.forEach((range) => {
+    const min = Math.max(MACHINE_MIN_COUNT, Math.round(toNum(range?.minMachineCount)));
+    const max = Math.min(MACHINE_MAX_COUNT, Math.round(toNum(range?.maxMachineCount)));
+    const wage = Math.max(0, Math.round(toNum(range?.wageAmount)));
+    if (!wage || max < min) return;
+    for (let mc = min; mc <= max; mc += 1) {
+      map[mc] = wage;
+    }
+  });
+  return map;
+}
+
+function compressMachineMapToRanges(machineMap = {}) {
+  const ranges = [];
+  let current = null;
+  for (let mc = MACHINE_MIN_COUNT; mc <= MACHINE_MAX_COUNT; mc += 1) {
+    const wage = Math.max(0, Math.round(toNum(machineMap[mc])));
+    if (!wage) {
+      if (current) {
+        ranges.push(current);
+        current = null;
+      }
+      continue;
+    }
+    if (!current) {
+      current = { minMachineCount: mc, maxMachineCount: mc, wageAmount: wage };
+      continue;
+    }
+    if (current.wageAmount === wage && current.maxMachineCount + 1 === mc) {
+      current.maxMachineCount = mc;
+    } else {
+      ranges.push(current);
+      current = { minMachineCount: mc, maxMachineCount: mc, wageAmount: wage };
+    }
+  }
+  if (current) ranges.push(current);
+  return ranges;
+}
+
+function machineMapFromRow(row = {}) {
+  const mapFromRanges = expandRangesToMachineMap(row.machineRanges);
+  const hasAnyRangeValue = Object.values(mapFromRanges).some((v) => toNum(v) > 0);
+  if (hasAnyRangeValue) return mapFromRanges;
+  const map = {};
+  for (let mc = MACHINE_MIN_COUNT; mc <= MACHINE_MAX_COUNT; mc += 1) {
+    map[mc] = Math.max(0, Math.round(toNum(row[`machine${mc}Wage`])));
+  }
+  return map;
+}
+
+function machineMapToLegacyFields(machineMap = {}) {
+  const out = {};
+  for (let mc = MACHINE_MIN_COUNT; mc <= MACHINE_MAX_COUNT; mc += 1) {
+    out[`machine${mc}Wage`] = Math.max(0, Math.round(toNum(machineMap[mc])));
+  }
+  return out;
+}
+
+function getWageByMachineCount(row, machineCount) {
+  const mc = Math.round(toNum(machineCount));
+  if (mc < MACHINE_MIN_COUNT || mc > MACHINE_MAX_COUNT) return 0;
+  const map = machineMapFromRow(row || {});
+  return Math.max(0, Math.round(toNum(map[mc])));
+}
+
+function normalizeMachineWagePayload(body) {
+  const hasRanges = Array.isArray(body?.machineRanges) && body.machineRanges.length > 0;
+  const machineMap = hasRanges
+    ? expandRangesToMachineMap(body.machineRanges)
+    : machineMapFromRow(body || {});
+  return {
+    machineMap,
+    machineRanges: compressMachineMapToRanges(machineMap),
+    legacyFields: machineMapToLegacyFields(machineMap),
+  };
+}
+
+function validateMachineWages(payload, rawBody) {
+  if (Array.isArray(rawBody?.machineRanges)) {
+    for (const row of rawBody.machineRanges) {
+      const min = Math.round(toNum(row?.minMachineCount));
+      const max = Math.round(toNum(row?.maxMachineCount));
+      const wage = Math.round(toNum(row?.wageAmount));
+      if (min < MACHINE_MIN_COUNT || max > MACHINE_MAX_COUNT) {
+        return `Machine count must be between ${MACHINE_MIN_COUNT} and ${MACHINE_MAX_COUNT}`;
+      }
+      if (max < min) return 'Max Machine Count cannot be less than Minimum Machine Count';
+      if (wage < 0) return 'Wage amount cannot be negative';
+    }
+  }
+  const hasAtLeastOne = Object.values(payload.machineMap || {}).some((v) => toNum(v) > 0);
+  if (!hasAtLeastOne) return 'At least one machine wage must be greater than zero';
+  return '';
+}
+
+async function hasDuplicateFromDate(employeeId, fromDate, excludeId = null) {
+  const query = { employeeId, fromDate };
+  if (excludeId) query._id = { $ne: excludeId };
+  const count = await db.MachineWageMaster.countDocuments(query);
+  return count > 0;
+}
+
+router.get('/machine-wage-master', auth, async (req, res) => {
+  try {
+    const query = {};
+    if (req.query?.employeeId) query.employeeId = req.query.employeeId;
+    const rows = await db.MachineWageMaster.find(query)
+      .sort({ fromDate: -1, _id: -1 })
+      .lean();
+    res.json({ success: true, data: rows });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.post('/machine-wage-master', auth, async (req, res) => {
+  try {
+    const employeeId = req.body?.employeeId;
+    if (!employeeId) {
+      return res.status(400).json({ success: false, error: 'Employee is required' });
+    }
+
+    const employee = await db.Employee.findOne({ _id: employeeId, status: 'active' }).select('_id').lean();
+    if (!employee) {
+      return res.status(400).json({ success: false, error: 'Active employee not found' });
+    }
+
+    const fromDate = startOfDay(req.body?.fromDate);
+    if (isNaN(fromDate.getTime())) {
+      return res.status(400).json({ success: false, error: 'From Date is required' });
+    }
+
+    const wages = normalizeMachineWagePayload(req.body || {});
+    const validationError = validateMachineWages(wages, req.body || {});
+    if (validationError) {
+      return res.status(400).json({ success: false, error: validationError });
+    }
+
+    if (await hasDuplicateFromDate(employeeId, fromDate)) {
+      return res.status(400).json({ success: false, error: 'A Machine Wage configuration already exists for this employee on this From Date' });
+    }
+
+    // Inherit wages for machine counts not explicitly set, from the employee's most recent previous config.
+    const machineMap = { ...wages.machineMap };
+    const previous = await db.MachineWageMaster.findOne({
+      employeeId,
+      isActive: true,
+      fromDate: { $lt: fromDate },
+    }).sort({ fromDate: -1, _id: -1 }).lean();
+    if (previous) {
+      const previousMap = machineMapFromRow(previous);
+      for (let mc = MACHINE_MIN_COUNT; mc <= MACHINE_MAX_COUNT; mc += 1) {
+        if (toNum(machineMap[mc]) <= 0 && toNum(previousMap[mc]) > 0) {
+          machineMap[mc] = Math.max(0, Math.round(toNum(previousMap[mc])));
+        }
+      }
+    }
+
+    const mergedRanges = compressMachineMapToRanges(machineMap);
+    const mergedLegacyFields = machineMapToLegacyFields(machineMap);
+
+    const row = new db.MachineWageMaster({
+      employeeId,
+      fromDate,
+      machineRanges: mergedRanges,
+      ...mergedLegacyFields,
+      isActive: req.body?.isActive !== false,
+      createdBy: req.user?._id || null,
+      modifiedBy: req.user?._id || null,
+      createdDate: new Date(),
+      modifiedDate: new Date(),
+    });
+
+    await row.save();
+    res.status(201).json({ success: true, data: row });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+router.put('/machine-wage-master/:id', auth, async (req, res) => {
+  try {
+    const row = await db.MachineWageMaster.findById(req.params.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Machine wage row not found' });
+
+    const employeeId = req.body?.employeeId || row.employeeId;
+    if (!employeeId) {
+      return res.status(400).json({ success: false, error: 'Employee is required' });
+    }
+
+    const employee = await db.Employee.findOne({ _id: employeeId, status: 'active' }).select('_id').lean();
+    if (!employee) {
+      return res.status(400).json({ success: false, error: 'Active employee not found' });
+    }
+
+    const fromDate = req.body?.fromDate ? startOfDay(req.body.fromDate) : row.fromDate;
+    if (isNaN(fromDate.getTime())) {
+      return res.status(400).json({ success: false, error: 'From Date is required' });
+    }
+
+    const wages = normalizeMachineWagePayload({ ...row.toObject(), ...req.body });
+    const validationError = validateMachineWages(wages, req.body || {});
+    if (validationError) {
+      return res.status(400).json({ success: false, error: validationError });
+    }
+
+    if ((req.body?.fromDate || req.body?.employeeId) && await hasDuplicateFromDate(employeeId, fromDate, row._id)) {
+      return res.status(400).json({ success: false, error: 'A Machine Wage configuration already exists for this employee on this From Date' });
+    }
+
+    Object.assign(row, {
+      employeeId,
+      fromDate,
+      machineRanges: wages.machineRanges,
+      ...wages.legacyFields,
+      isActive: req.body?.isActive !== undefined ? !!req.body.isActive : row.isActive,
+      modifiedBy: req.user?._id || null,
+      modifiedDate: new Date(),
+    });
+
+    await row.save();
+    res.json({ success: true, data: row });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+router.delete('/machine-wage-master/:id', auth, async (req, res) => {
+  try {
+    const row = await db.MachineWageMaster.findById(req.params.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Machine wage row not found' });
+    await db.MachineWageMaster.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+router.get('/machine-wage-master/resolve', auth, async (req, res) => {
+  try {
+    const employeeId = req.query?.employeeId;
+    if (!employeeId) {
+      return res.status(400).json({ success: false, error: 'employeeId is required' });
+    }
+
+    const targetDate = startOfDay(req.query?.date || new Date());
+    const machineCount = Math.round(toNum(req.query?.machineCount));
+    if (isNaN(targetDate.getTime())) {
+      return res.status(400).json({ success: false, error: 'Valid date is required' });
+    }
+
+    const cfg = await db.MachineWageMaster.findOne({
+      employeeId,
+      isActive: true,
+      fromDate: { $lte: targetDate },
+    }).sort({ fromDate: -1, _id: -1 }).lean();
+
+    if (!cfg) {
+      return res.json({ success: true, data: { wage: 0, configId: null, found: false } });
+    }
+
+    const field = machineWageFieldByCount[machineCount] || null;
+    const wage = field ? getWageByMachineCount(cfg, machineCount) : 0;
+    res.json({ success: true, data: { wage, configId: cfg._id, found: true, config: cfg } });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ── Employee Summary (filterable + week-wise history) ───────────────────────
+
+router.get('/employee-summary', auth, async (req, res) => {
+  try {
+    const { employeeId, fromDate, toDate, status } = req.query;
+
+    const query = {};
+    if (fromDate || toDate) {
+      const from = fromDate ? startOfDay(fromDate) : new Date('1970-01-01T00:00:00.000Z');
+      const to = toDate ? endOfDay(toDate) : new Date('2999-12-31T23:59:59.999Z');
+      query.periodStart = { $lte: to };
+      query.periodEnd = { $gte: from };
+    }
+
+    const payrolls = await db.Payroll.find(query)
+      .sort({ periodStart: 1, _id: 1 })
+      .lean();
+
+    const weeks = [];
+
+    payrolls.forEach((run) => {
+      (run.employees || []).forEach((emp) => {
+        if (employeeId && String(emp.employeeId) !== String(employeeId)) return;
+        if (status && String(emp.paymentStatus || '').toLowerCase() !== String(status).toLowerCase()) return;
+        weeks.push({
+          payrollId: run._id,
+          employeeId: emp.employeeId,
+          employeeName: emp.name || 'Unknown',
+          weekLabel: run.runTitle || '',
+          periodStart: run.periodStart,
+          periodEnd: run.periodEnd,
+          daysWorked: toNum(emp.daysWorked),
+          totalWages: toNum(emp.totalWages),
+          deductionAmount: toNum(emp.deductionAmount),
+          marketAmount: toNum(emp.marketAmount),
+          advanceAmount: toNum(emp.advanceAmount),
+          finalSalary: toNum(emp.finalSalary || emp.netSalary),
+          paidAmount: toNum(emp.amountPaid),
+          balance: toNum(emp.amountPending),
+          status: emp.paymentStatus || 'pending',
+          dailyEntries: Array.isArray(emp.dailyEntries) ? emp.dailyEntries : [],
+        });
+      });
+    });
+
+    const summary = weeks.reduce((acc, row) => {
+      if (!acc.employeeId) {
+        acc.employeeId = row.employeeId;
+        acc.employeeName = row.employeeName;
+      }
+      acc.totalDaysWorked += row.daysWorked;
+      acc.totalWages += row.totalWages;
+      acc.deduction += row.deductionAmount;
+      acc.market += row.marketAmount;
+      acc.advance += row.advanceAmount;
+      acc.finalSalary += row.finalSalary;
+      acc.paidAmount += row.paidAmount;
+      acc.balance += row.balance;
+      return acc;
+    }, {
+      employeeId: null,
+      employeeName: '',
+      totalDaysWorked: 0,
+      totalWages: 0,
+      deduction: 0,
+      market: 0,
+      advance: 0,
+      finalSalary: 0,
+      paidAmount: 0,
+      balance: 0,
+    });
+
+    res.json({ success: true, data: { summary, weeks } });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ── Salary Runs ───────────────────────────────────────────────────────────────
+
 router.post('/generate', auth, async (req, res) => {
   try {
     const { month, year, periodStart, periodEnd, employeeEntries, runTitle } = req.body;
+    await ensureNoLegacyIndex();
 
-    await ensureNoLegacyUniquePayrollIndex();
-
-    if (!periodStart || !periodEnd) {
+    if (!periodStart || !periodEnd)
       return res.status(400).json({ success: false, error: 'Period start and end are required' });
-    }
-    if (!Array.isArray(employeeEntries) || employeeEntries.length === 0) {
-      return res.status(400).json({ success: false, error: 'No employees selected for this run' });
-    }
+    if (!Array.isArray(employeeEntries) || !employeeEntries.length)
+      return res.status(400).json({ success: false, error: 'No employees selected' });
 
     const parsedStart = startOfDay(periodStart);
-    const parsedEnd = endOfDay(periodEnd);
-    if (Number.isNaN(parsedStart.getTime()) || Number.isNaN(parsedEnd.getTime())) {
-      return res.status(400).json({ success: false, error: 'Invalid period dates' });
-    }
-    if (parsedStart > parsedEnd) {
-      return res.status(400).json({ success: false, error: 'Period start cannot be after period end' });
-    }
-    if (!sameMonthYear(parsedStart, month, year) || !sameMonthYear(parsedEnd, month, year)) {
-      return res.status(400).json({ success: false, error: 'Period dates must be inside the selected month and year' });
-    }
+    const parsedEnd   = endOfDay(periodEnd);
 
-    const selectedIds = employeeEntries.map(d => d.employeeId);
-    const employees = await db.Employee.find({ _id: { $in: selectedIds }, status: 'active' });
+    if (isNaN(parsedStart.getTime()) || isNaN(parsedEnd.getTime()))
+      return res.status(400).json({ success: false, error: 'Invalid period dates' });
+    if (parsedStart > parsedEnd)
+      return res.status(400).json({ success: false, error: 'Start date cannot be after end date' });
+
+    const ids       = employeeEntries.map(d => d.employeeId);
+    const employees = await db.Employee.find({ _id: { $in: ids }, status: 'active' });
 
     const payrollData = employees.map(emp => {
-      const input = employeeEntries.find(d => d.employeeId === emp._id.toString()) || {};
-      const amounts = calcPayrollAmounts({
-        daysWorked: input.daysWorked,
-        dailyWage: input.wagePerDay,
+      const input   = employeeEntries.find(d => String(d.employeeId) === emp._id.toString()) || {};
+      const dailyEntries = sanitizeDailyEntries(input.dailyEntries);
+      const amounts = calcAmounts({
+        daysWorked:          input.daysWorked,
+        dailyWage:           input.wagePerDay ?? emp.dailyWage,
+        totalWages:          input.totalWages,
         deductionPercentage: input.deductionPercentage ?? emp.deductionPercentage,
+        marketAmount:        input.marketAmount,
+        advanceAmount:       input.advanceAmount,
+        dailyEntries,
       });
-
       return {
-        employeeId: emp._id,
-        name: emp.name,
+        employeeId:        emp._id,
+        name:              emp.name,
         ...amounts,
-        paymentStatus: 'pending',
-        amountPaid: 0,
-        amountPending: amounts.netSalary,
+        paymentStatus:     'pending',
+        amountPaid:        0,
+        amountPending:     amounts.finalSalary,
         deductionPaidBack: 0,
-        notes: input.notes || ''
+        notes:             input.notes || '',
+        dailyEntries,
       };
     });
 
     const payroll = new db.Payroll({
       month,
       year,
-      periodStart: parsedStart,
-      periodEnd: parsedEnd,
-      runTitle: runTitle || '',
-      employees: payrollData,
-      generatedAt: new Date(),
-      generatedBy: req.user._id
+      periodStart:  parsedStart,
+      periodEnd:    parsedEnd,
+      runTitle:     runTitle || '',
+      employees:    payrollData,
+      generatedAt:  new Date(),
+      generatedBy:  req.user._id,
     });
 
     await payroll.save();
     res.status(201).json({ success: true, data: payroll });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
   }
 });
 
-// GET: All payroll runs for specific month
+// All runs for a specific month
 router.get('/history/:month/:year', auth, async (req, res) => {
   try {
-    const { month, year } = req.params;
     const payrolls = await db.Payroll.find({
-      month: parseInt(month),
-      year: parseInt(year)
-    }).sort({ generatedAt: -1, _id: -1 });
+      month: parseInt(req.params.month),
+      year:  parseInt(req.params.year),
+    }).sort({ periodStart: 1, _id: 1 }).lean();
+    res.json({ success: true, data: payrolls });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Runs overlapping a custom date range (used for weekly prefill/edit)
+router.get('/history-range', auth, async (req, res) => {
+  try {
+    const { from, to, employeeId } = req.query;
+    if (!from || !to) {
+      return res.status(400).json({ success: false, error: 'from and to query params are required' });
+    }
+
+    const fromDate = startOfDay(from);
+    const toDate = endOfDay(to);
+    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+      return res.status(400).json({ success: false, error: 'Invalid date range' });
+    }
+
+    const query = {
+      periodStart: { $lte: toDate },
+      periodEnd: { $gte: fromDate },
+    };
+
+    if (employeeId) {
+      query['employees.employeeId'] = employeeId;
+    }
+
+    const payrolls = await db.Payroll.find(query)
+      .sort({ periodStart: 1, _id: 1 })
+      .lean();
 
     res.json({ success: true, data: payrolls });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// PUT: Edit payroll history entry for one employee
-router.put('/history/:payrollId/employee/:employeeId', auth, async (req, res) => {
+// Delete an entire payroll run
+router.delete('/history/:payrollId', auth, async (req, res) => {
   try {
-    const { payrollId, employeeId } = req.params;
-    const { daysWorked, dailyWage, deductionPercentage } = req.body;
+    const payroll = await db.Payroll.findById(req.params.payrollId);
+    if (!payroll) return res.status(404).json({ success: false, error: 'Payroll run not found' });
 
-    const payroll = await db.Payroll.findById(payrollId);
-    if (!payroll) {
-      return res.status(404).json({ success: false, error: 'Payroll not found' });
+    await db.PaymentHistory.deleteMany({ payrollId: payroll._id });
+    await db.Payroll.findByIdAndDelete(payroll._id);
+
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+// Edit an existing payroll run (dates, label, employee amounts)
+router.put('/history/:payrollId', auth, async (req, res) => {
+  try {
+    const { periodStart, periodEnd, runTitle, employeeEntries } = req.body;
+    const payroll = await db.Payroll.findById(req.params.payrollId);
+    if (!payroll) return res.status(404).json({ success: false, error: 'Payroll run not found' });
+
+    if (periodStart) payroll.periodStart = startOfDay(periodStart);
+    if (periodEnd)   payroll.periodEnd   = endOfDay(periodEnd);
+    if (runTitle !== undefined) payroll.runTitle = runTitle;
+
+    if (payroll.periodStart > payroll.periodEnd)
+      return res.status(400).json({ success: false, error: 'Start date cannot be after end date' });
+
+    if (Array.isArray(employeeEntries)) {
+      payroll.employees = payroll.employees.map(emp => {
+        const input = employeeEntries.find(e => String(e.employeeId) === emp.employeeId?.toString());
+        if (!input) return emp;
+        const dailyEntries = sanitizeDailyEntries(input.dailyEntries);
+        const amounts     = calcAmounts({
+          daysWorked:          input.daysWorked,
+          dailyWage:           input.wagePerDay,
+          totalWages:          input.totalWages,
+          deductionPercentage: input.deductionPercentage,
+          marketAmount:        input.marketAmount,
+          advanceAmount:       input.advanceAmount,
+          dailyEntries,
+        });
+        const amountPaid    = toNum(emp.amountPaid);
+        const amountPending = Math.max(0, amounts.finalSalary - amountPaid);
+        const paymentStatus = amountPending === 0 ? 'paid' : amountPaid > 0 ? 'partial' : 'pending';
+        return {
+          ...emp.toObject(),
+          ...amounts,
+          amountPaid,
+          amountPending,
+          paymentStatus,
+          dailyEntries,
+        };
+      });
+      payroll.markModified('employees');
     }
-
-    const emp = payroll.employees.find(e => e.employeeId.toString() === employeeId);
-    if (!emp) {
-      return res.status(404).json({ success: false, error: 'Employee payroll entry not found' });
-    }
-
-    const nextDays = toNum(daysWorked);
-    const nextWage = toNum(dailyWage);
-    const nextDeductionPct = toNum(deductionPercentage);
-
-    const amounts = calcPayrollAmounts({
-      daysWorked: nextDays,
-      dailyWage: nextWage,
-      deductionPercentage: nextDeductionPct,
-    });
-    const amountPaid = toNum(emp.amountPaid);
-    const amountPending = Math.max(0, amounts.netSalary - amountPaid);
-    const paymentStatus = amountPending <= 0 ? 'paid' : (amountPaid > 0 ? 'partial' : 'pending');
-
-    emp.daysWorked = amounts.daysWorked;
-    emp.dailyWage = amounts.dailyWage;
-    emp.deductionPercentage = amounts.deductionPercentage;
-    emp.totalWages = amounts.totalWages;
-    emp.deductionAmount = amounts.deductionAmount;
-    emp.netSalary = amounts.netSalary;
-    emp.amountPending = amountPending;
-    emp.paymentStatus = paymentStatus;
 
     await payroll.save();
     res.json({ success: true, data: payroll });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
   }
 });
 
-// DELETE: Remove payroll history entry for one employee
-router.delete('/history/:payrollId/employee/:employeeId', auth, async (req, res) => {
-  try {
-    const { payrollId, employeeId } = req.params;
+// ── Pending summary ───────────────────────────────────────────────────────────
 
-    const payroll = await db.Payroll.findById(payrollId);
-    if (!payroll) {
-      return res.status(404).json({ success: false, error: 'Payroll not found' });
-    }
-
-    const beforeCount = payroll.employees.length;
-    payroll.employees = payroll.employees.filter(e => e.employeeId.toString() !== employeeId);
-
-    if (payroll.employees.length === beforeCount) {
-      return res.status(404).json({ success: false, error: 'Employee payroll entry not found' });
-    }
-
-    await db.PaymentHistory.deleteMany({ payrollId, employeeId });
-    await payroll.save();
-
-    res.json({ success: true, data: payroll });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-// GET: All pending payments
 router.get('/pending', auth, async (req, res) => {
   try {
-    const payrolls = await db.Payroll.find({});
-    
-    const pending = [];
-    payrolls.forEach(payroll => {
-      payroll.employees.forEach(emp => {
-        const amountPaid = toNum(emp.amountPaid);
-        const netSalary = toNum(emp.netSalary);
-        const rawPending = toNum(emp.amountPending);
-        const amountPending = rawPending > 0 ? rawPending : Math.max(0, netSalary - amountPaid);
-
+    const payrolls = await db.Payroll.find({}).lean();
+    const pending  = [];
+    payrolls.forEach(p => {
+      p.employees.forEach(emp => {
+        const amountPending = toNum(emp.amountPending);
         if (amountPending > 0) {
           pending.push({
-            payrollId: payroll._id,
-            month: payroll.month,
-            year: payroll.year,
-            periodStart: payroll.periodStart,
-            periodEnd: payroll.periodEnd,
-            employeeId: emp.employeeId,
-            name: emp.name || 'Unknown',
-            netSalary,
-            amountPaid,
+            payrollId:         p._id,
+            month:             p.month,
+            year:              p.year,
+            periodStart:       p.periodStart,
+            periodEnd:         p.periodEnd,
+            employeeId:        emp.employeeId,
+            name:              emp.name || 'Unknown',
+            totalWages:        toNum(emp.totalWages),
+            netSalary:         toNum(emp.netSalary),
+            marketAmount:      toNum(emp.marketAmount),
+            advanceAmount:     toNum(emp.advanceAmount),
+            finalSalary:       toNum(emp.finalSalary || emp.netSalary),
+            amountPaid:        toNum(emp.amountPaid),
             amountPending,
-            deductionAmount: toNum(emp.deductionAmount),
+            deductionAmount:   toNum(emp.deductionAmount),
             deductionPaidBack: toNum(emp.deductionPaidBack),
-            paymentStatus: emp.paymentStatus || 'pending'
+            paymentStatus:     emp.paymentStatus || 'pending',
           });
         }
       });
     });
-
     res.json({ success: true, data: pending });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// POST: Record payment
-router.post('/payment', auth, async (req, res) => {
-  try {
-    const { payrollId, employeeId, amountPaid, paymentMethod, notes } = req.body;
+// ── Payments ──────────────────────────────────────────────────────────────────
 
-    // Find payroll
-    const payroll = await db.Payroll.findById(payrollId);
-    if (!payroll) {
-      return res.status(404).json({ success: false, error: 'Payroll not found' });
-    }
-
-    // Find employee in payroll
-    const empIndex = payroll.employees.findIndex(e => e.employeeId.toString() === employeeId);
-    if (empIndex === -1) {
-      return res.status(404).json({ success: false, error: 'Employee not found in payroll' });
-    }
-
-    const emp = payroll.employees[empIndex];
-    emp.amountPaid += amountPaid;
-    emp.amountPending -= amountPaid;
-    emp.paymentStatus = emp.amountPending <= 0 ? 'paid' : 'partial';
-
-    // Create payment history
-    const payment = new db.PaymentHistory({
-      payrollId: payroll._id,
-      employeeId,
-      payrollMonth: payroll.month,
-      payrollYear: payroll.year,
-      amountPaid,
-      paymentType: 'salary',
-      paymentDate: new Date(),
-      paymentMethod,
-      notes
-    });
-
-    await payment.save();
-    await payroll.save();
-
-    res.json({ 
-      success: true, 
-      data: { 
-        payroll, 
-        payment 
-      } 
-    });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-// POST: Record payment across oldest pending payrolls for an employee
+// Settle salary payment across oldest pending runs
 router.post('/payment/settle-total', auth, async (req, res) => {
   try {
-    const { employeeId, amountPaid, paymentMethod, notes, upToMonth, upToYear } = req.body;
-
+    const { employeeId, amountPaid, paymentMethod, notes } = req.body;
     const totalToSettle = toNum(amountPaid);
-    if (!employeeId) {
-      return res.status(400).json({ success: false, error: 'Employee is required' });
-    }
-    if (totalToSettle <= 0) {
-      return res.status(400).json({ success: false, error: 'Payment amount must be greater than zero' });
-    }
+
+    if (!employeeId) return res.status(400).json({ success: false, error: 'Employee is required' });
+    if (totalToSettle <= 0) return res.status(400).json({ success: false, error: 'Amount must be greater than zero' });
 
     const payrolls = await db.Payroll.find({
-      employees: { $elemMatch: { employeeId, amountPending: { $gt: 0 } } }
-    }).sort({ year: 1, month: 1, generatedAt: 1, _id: 1 });
+      employees: { $elemMatch: { employeeId, amountPending: { $gt: 0 } } },
+    }).sort({ year: 1, month: 1, periodStart: 1, _id: 1 });
 
-    const eligiblePayrolls = payrolls.filter(payroll => {
-      if (!upToMonth || !upToYear) return true;
-      if (payroll.year < Number(upToYear)) return true;
-      return payroll.year === Number(upToYear) && payroll.month <= Number(upToMonth);
-    });
-
-    if (!eligiblePayrolls.length) {
+    if (!payrolls.length)
       return res.status(404).json({ success: false, error: 'No pending payroll found for this employee' });
-    }
 
     let remaining = totalToSettle;
     const allocations = [];
 
-    for (const payroll of eligiblePayrolls) {
+    for (const payroll of payrolls) {
       if (remaining <= 0) break;
-      const emp = payroll.employees.find(e => e.employeeId.toString() === employeeId);
+      const emp = payroll.employees.find(e => e.employeeId?.toString() === employeeId);
       if (!emp) continue;
-
       const pending = toNum(emp.amountPending);
       if (pending <= 0) continue;
 
-      const applied = Math.min(pending, remaining);
-      emp.amountPaid = toNum(emp.amountPaid) + applied;
+      const applied     = Math.min(pending, remaining);
+      emp.amountPaid    = toNum(emp.amountPaid) + applied;
       emp.amountPending = Math.max(0, pending - applied);
       emp.paymentStatus = emp.amountPending <= 0 ? 'paid' : 'partial';
 
       const payment = new db.PaymentHistory({
-        payrollId: payroll._id,
+        payrollId:     payroll._id,
         employeeId,
-        payrollMonth: payroll.month,
-        payrollYear: payroll.year,
-        amountPaid: applied,
-        paymentType: 'salary',
-        paymentDate: new Date(),
-        paymentMethod,
-        notes
+        payrollMonth:  payroll.month,
+        payrollYear:   payroll.year,
+        amountPaid:    applied,
+        paymentType:   'salary',
+        paymentDate:   new Date(),
+        paymentMethod: paymentMethod || 'cash',
+        notes:         notes || '',
       });
-
       await payment.save();
       await payroll.save();
 
-      allocations.push({
-        payrollId: payroll._id,
-        payrollMonth: payroll.month,
-        payrollYear: payroll.year,
-        applied
-      });
+      allocations.push({ payrollId: payroll._id, payrollMonth: payroll.month, payrollYear: payroll.year, applied });
       remaining -= applied;
     }
 
     res.json({
       success: true,
       data: {
-        requestedAmount: totalToSettle,
-        settledAmount: totalToSettle - remaining,
+        requestedAmount:   totalToSettle,
+        settledAmount:     totalToSettle - remaining,
         unallocatedAmount: remaining,
-        allocations
-      }
-    });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-// POST: Record deduction amount paid back to employee for a specific salary run
-router.post('/payment/deduction-return', auth, async (req, res) => {
-  try {
-    const { payrollId, employeeId, amountPaid, paymentMethod, notes } = req.body;
-    const amount = toNum(amountPaid);
-    if (!payrollId || !employeeId) {
-      return res.status(400).json({ success: false, error: 'Payroll and employee are required' });
-    }
-    if (amount <= 0) {
-      return res.status(400).json({ success: false, error: 'Deduction return amount must be greater than zero' });
-    }
-
-    const payroll = await db.Payroll.findById(payrollId);
-    if (!payroll) {
-      return res.status(404).json({ success: false, error: 'Payroll not found' });
-    }
-
-    const emp = payroll.employees.find(e => e.employeeId.toString() === employeeId);
-    if (!emp) {
-      return res.status(404).json({ success: false, error: 'Employee not found in payroll' });
-    }
-
-    emp.deductionPaidBack = toNum(emp.deductionPaidBack) + amount;
-
-    const payment = new db.PaymentHistory({
-      payrollId: payroll._id,
-      employeeId,
-      payrollMonth: payroll.month,
-      payrollYear: payroll.year,
-      amountPaid: amount,
-      paymentType: 'deduction_return',
-      paymentDate: new Date(),
-      paymentMethod,
-      notes
-    });
-
-    await payment.save();
-    await payroll.save();
-
-    res.json({
-      success: true,
-      data: {
-        payroll,
-        payment
-      }
-    });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-// GET: Payment history for employee
-router.get('/payment-history/:employeeId', auth, async (req, res) => {
-  try {
-    const payments = await db.PaymentHistory.find({ 
-      employeeId: req.params.employeeId 
-    }).sort({ paymentDate: -1 });
-
-    res.json({ success: true, data: payments });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-// POST: Send payslip PDF to employee WhatsApp number
-router.post('/whatsapp-payslip', auth, async (req, res) => {
-  try {
-    const { employeeId, pdfBase64, fileName, caption } = req.body;
-
-    if (!employeeId) {
-      return res.status(400).json({ success: false, error: 'Employee is required' });
-    }
-    if (!pdfBase64) {
-      return res.status(400).json({ success: false, error: 'PDF file is required' });
-    }
-    if (!isCloudinaryConfigured) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.',
-      });
-    }
-    if (!isWhatsAppConfigured()) {
-      return res.status(400).json({
-        success: false,
-        error: 'WhatsApp API is not configured. Set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID.',
-      });
-    }
-
-    const employee = await db.Employee.findById(employeeId);
-    if (!employee) {
-      return res.status(404).json({ success: false, error: 'Employee not found' });
-    }
-
-    const phone = normalizePhone(employee.phone);
-    if (!phone) {
-      return res.status(400).json({ success: false, error: 'Employee phone number is missing' });
-    }
-
-    const pdfUrl = await uploadPayslipPdf(pdfBase64, fileName || `Payslip_${employee.name}.pdf`);
-    const whatsappResponse = await sendWhatsAppDocument({
-      to: phone,
-      link: pdfUrl,
-      fileName: fileName || `Payslip_${employee.name}.pdf`,
-      caption: caption || `Salary slip for ${employee.name}`,
-    });
-
-    res.json({
-      success: true,
-      data: {
-        employeeId,
-        phone,
-        pdfUrl,
-        whatsappResponse,
+        allocations,
       },
     });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+// Return deduction amount to employee — distributes across oldest runs with remaining balance
+router.post('/payment/deduction-return-settle', auth, async (req, res) => {
+  try {
+    const { employeeId, amountPaid, paymentMethod, notes } = req.body;
+    const totalToSettle = toNum(amountPaid);
+
+    if (!employeeId) return res.status(400).json({ success: false, error: 'Employee is required' });
+    if (totalToSettle <= 0) return res.status(400).json({ success: false, error: 'Amount must be greater than zero' });
+
+    const payrolls = await db.Payroll.find({ 'employees.employeeId': employeeId })
+      .sort({ year: 1, month: 1, periodStart: 1, _id: 1 });
+
+    const eligible = payrolls.filter(p => {
+      const emp = p.employees.find(e => e.employeeId?.toString() === employeeId);
+      return emp && (toNum(emp.deductionAmount) - toNum(emp.deductionPaidBack)) > 0;
+    });
+
+    if (!eligible.length)
+      return res.status(404).json({ success: false, error: 'No deduction balance found for this employee' });
+
+    let remaining = totalToSettle;
+    const allocations = [];
+
+    for (const payroll of eligible) {
+      if (remaining <= 0) break;
+      const emp     = payroll.employees.find(e => e.employeeId?.toString() === employeeId);
+      const balance = toNum(emp.deductionAmount) - toNum(emp.deductionPaidBack);
+      if (balance <= 0) continue;
+
+      const applied         = Math.min(balance, remaining);
+      emp.deductionPaidBack = toNum(emp.deductionPaidBack) + applied;
+
+      const payment = new db.PaymentHistory({
+        payrollId:     payroll._id,
+        employeeId,
+        payrollMonth:  payroll.month,
+        payrollYear:   payroll.year,
+        amountPaid:    applied,
+        paymentType:   'deduction_return',
+        paymentDate:   new Date(),
+        paymentMethod: paymentMethod || 'cash',
+        notes:         notes || '',
+      });
+      await payment.save();
+      await payroll.save();
+
+      allocations.push({ payrollId: payroll._id, applied });
+      remaining -= applied;
+    }
+
+    res.json({
+      success: true,
+      data: { settledAmount: totalToSettle - remaining, unallocatedAmount: remaining, allocations },
+    });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+// Payment history for an employee
+router.get('/payment-history/:employeeId', auth, async (req, res) => {
+  try {
+    const payments = await db.PaymentHistory.find({ employeeId: req.params.employeeId })
+      .sort({ paymentDate: -1 });
+    res.json({ success: true, data: payments });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 

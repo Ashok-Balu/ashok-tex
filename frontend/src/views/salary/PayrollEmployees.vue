@@ -59,6 +59,14 @@
         item-value="_rowKey"
         :items-per-page="10"
       >
+        <template v-slot:item.name="{ item }">
+          <div class="d-flex align-center" style="gap:12px;padding:4px 0">
+            <div class="tex-av-3d" :style="{ width:'42px', height:'42px', backgroundColor: nameColor(item.name), fontSize:'14px' }">
+              {{ nameInitials(item.name) }}
+            </div>
+            <span style="font-weight:600">{{ item.name }}</span>
+          </div>
+        </template>
         <template v-slot:item.deductionPercentage="{ item }">
           {{ item.deductionPercentage }}%
         </template>
@@ -138,6 +146,17 @@ import { useConfirm } from '@/composables/useConfirm'
 const store = usePayrollStore()
 const { confirm } = useConfirm()
 
+function nameColor(str) {
+  const palette = ['#1565C0','#2E7D32','#6A1B9A','#C62828','#F57C00','#00838F','#AD1457','#37474F','#4527A0','#558B2F']
+  let h = 0
+  for (let i = 0; i < (str || '').length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0 }
+  return palette[Math.abs(h) % palette.length]
+}
+function nameInitials(name) {
+  const w = String(name || '').trim().split(/\s+/)
+  return w.length >= 2 ? (w[0][0] + w[1][0]).toUpperCase() : String(name || '?').slice(0, 2).toUpperCase()
+}
+
 const headers = [
   { title: 'Name', key: 'name' },
   { title: 'Phone', key: 'phone' },
@@ -210,3 +229,4 @@ const deleteEmployee = async (employee) => {
   await store.removeEmployee(employee._id)
 }
 </script>
+

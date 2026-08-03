@@ -74,6 +74,19 @@ body {
   margin: 0 auto;
 }
 
+@media (max-width: 1280px) {
+  .page-container {
+    max-width: none;
+    padding: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-container {
+    padding: 12px;
+  }
+}
+
 .page-header {
   display: flex;
   align-items: flex-start;
@@ -128,13 +141,30 @@ body {
 }
 
 // ── Status Chips ───────────────────────────────────────────────────────────────
-.chip-active   { background: #E3F2FD !important; color: #1565C0 !important; font-weight: 700 !important; }
-.chip-done     { background: #E8F5E9 !important; color: #2E7D32 !important; font-weight: 700 !important; }
-.chip-pending  { background: #FFF3E0 !important; color: #E65100 !important; font-weight: 700 !important; }
-.chip-paid     { background: #E8F5E9 !important; color: #2E7D32 !important; font-weight: 700 !important; }
-.chip-partial  { background: #F3E5F5 !important; color: #7B1FA2 !important; font-weight: 700 !important; }
-.chip-morning  { background: #E3F2FD !important; color: #1565C0 !important; font-weight: 700 !important; }
-.chip-night    { background: #EDE7F6 !important; color: #4527A0 !important; font-weight: 700 !important; }
+.chip-active,
+.chip-done,
+.chip-pending,
+.chip-paid,
+.chip-partial,
+.chip-morning,
+.chip-night {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  white-space: nowrap !important;
+  line-height: 1.15 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+.chip-active   { background: #E3F2FD !important; color: #1565C0 !important; }
+.chip-done     { background: #E8F5E9 !important; color: #2E7D32 !important; }
+.chip-pending  { background: #FFF3E0 !important; color: #E65100 !important; }
+.chip-paid     { background: #E8F5E9 !important; color: #2E7D32 !important; }
+.chip-partial  { background: #F3E5F5 !important; color: #7B1FA2 !important; }
+.chip-morning  { background: #E3F2FD !important; color: #1565C0 !important; }
+.chip-night    { background: #EDE7F6 !important; color: #4527A0 !important; }
 
 // ── Progress bar ───────────────────────────────────────────────────────────────
 .at-progress {
@@ -247,8 +277,75 @@ body {
   width: 100%;
   display: flex;
   gap: 8px;
-  
+
   &.is-editing {
     .prod-submit-btn, .nool-add-btn { flex: 1; }
+  }
+}
+
+// ── Human Avatar (DiceBear) ───────────────────────────────────────────────────
+.emp-human-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #f8fafc;
+  border: 2.5px solid #e8eef6;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    transform: scale(1.08);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    border-color: #94b8db;
+  }
+
+  &--sm {
+    width: 32px;
+    height: 32px;
+    border-width: 2px;
+  }
+}
+
+// ── Name Avatar ───────────────────────────────────────────────────────────────
+.tex-av-3d {
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  text-shadow: none;
+  background-image: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.12), transparent);
+    pointer-events: none;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
   }
 }

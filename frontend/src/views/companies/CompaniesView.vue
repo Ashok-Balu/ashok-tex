@@ -1,142 +1,158 @@
 <template>
-  <div class="page-container">
-    <PageHeader :title="t('companies')" sub="Manage mills and keep deduction defaults aligned per company.">
-      <v-btn color="primary" prepend-icon="mdi-plus" variant="flat" rounded="lg" @click="open()">{{ t('addCompany') }}</v-btn>
-    </PageHeader>
-
-    <v-row class="mb-4">
-      <v-col cols="12" sm="6" md="4">
-        <v-card rounded="xl" class="at-card stat-mini stat-mini-info">
-          <div class="stat-mini-label">Total Companies</div>
-          <div class="stat-mini-value">{{ totalCompanies }}</div>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <v-card rounded="xl" class="at-card company-table-shell" style="overflow:hidden">
-      <div class="company-toolbar">
-        <div class="company-toolbar-left">
-          <v-icon size="18" color="primary">mdi-domain</v-icon>
-          <span class="company-toolbar-title">Company Registry</span>
+  <div class="companies-page">
+    <!-- Hero Section -->
+    <div class="cp-hero">
+      <div class="cp-hero-bg"></div>
+      <div class="cp-hero-content">
+        <div class="cp-hero-left">
+          <div class="cp-hero-icon">
+            <v-icon size="28" color="white">mdi-domain</v-icon>
+          </div>
+          <div>
+            <h1 class="cp-hero-title">{{ t('companies') }}</h1>
+            <p class="cp-hero-sub">{{ totalCompanies }} mills registered</p>
+          </div>
         </div>
-        <v-text-field v-model="search" :placeholder="t('search')" prepend-inner-icon="mdi-magnify"
-          density="compact" variant="outlined" hide-details class="company-search" />
+        <div class="cp-hero-right">
+          <div class="cp-search-wrap">
+            <v-text-field
+              v-model="search"
+              :placeholder="t('search') + '...'"
+              prepend-inner-icon="mdi-magnify"
+              density="compact"
+              variant="solo"
+              hide-details
+              rounded="pill"
+              class="cp-search"
+              flat
+              clearable
+            />
+          </div>
+          <v-btn color="white" variant="flat" rounded="pill" prepend-icon="mdi-plus" class="cp-add-btn" @click="open()">
+            {{ t('addCompany') }}
+          </v-btn>
+        </div>
       </div>
-      <AgTable :rowData="store.items" :columnDefs="cols" :quickFilter="search" height="520px" />
-    </v-card>
+    </div>
 
-    <!-- Form dialog -->
-    <v-dialog v-model="dialog" max-width="520" persistent>
-      <v-card rounded="xl">
-        <v-card-title class="pt-5 px-6 font-weight-bold d-flex align-center justify-space-between">
-          <span>{{ editId ? t('editCompany') : t('addCompany') }}</span>
-          <v-chip size="small" color="primary" variant="tonal">Company Master</v-chip>
-        </v-card-title>
-        <v-card-text class="px-6">
+    <!-- Company Grid -->
+    <transition-group name="card" tag="div" class="cp-grid">
+      <div v-for="(company, idx) in filteredCompanies" :key="company._id" class="cp-card" :style="{ animationDelay: idx * 40 + 'ms' }">
+        <div class="cp-card-accent" :style="{ background: nameColor(company.name) }"></div>
+        <div class="cp-card-body">
+          <div class="cp-card-avatar" :style="{ background: `linear-gradient(135deg, ${nameColor(company.name)}, ${nameColorLight(company.name)})` }">
+            {{ nameInitials(company.name) }}
+          </div>
+          <div class="cp-card-name">{{ company.name }}</div>
+          <div class="cp-card-actions">
+            <button class="cp-action-btn cp-action-edit" @click="open(company)">
+              <v-icon size="14">mdi-pencil</v-icon>
+              Edit
+            </button>
+            <button class="cp-action-btn cp-action-delete" @click="handleDelete(company._id)">
+              <v-icon size="14">mdi-trash-can-outline</v-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="filteredCompanies.length === 0" key="empty" class="cp-empty">
+        <div class="cp-empty-icon">
+          <v-icon size="48" color="#b0bec5">mdi-domain-off</v-icon>
+        </div>
+        <p class="cp-empty-text">No companies found</p>
+        <p class="cp-empty-hint">Try a different search term</p>
+      </div>
+    </transition-group>
+
+    <!-- Add/Edit Dialog -->
+    <v-dialog v-model="dialog" max-width="440" persistent>
+      <v-card rounded="2xl" class="cp-form-card" elevation="24">
+        <div class="cp-form-header">
+          <div class="cp-form-header-icon">
+            <v-icon size="20" color="white">{{ editId ? 'mdi-pencil' : 'mdi-plus' }}</v-icon>
+          </div>
+          <div>
+            <div class="cp-form-title">{{ editId ? t('editCompany') : t('addCompany') }}</div>
+            <div class="cp-form-sub">{{ editId ? 'Update company details' : 'Register a new mill' }}</div>
+          </div>
+          <v-spacer />
+          <v-btn icon="mdi-close" variant="text" size="small" @click="dialog = false" />
+        </div>
+        <v-card-text class="px-6 pt-6 pb-4">
           <v-form ref="formRef" validate-on="blur" @submit.prevent="save">
-            <v-text-field v-model="form.name" :label="t('companyName')" class="mb-3" :rules="[v => !!String(v || '').trim() || t('required')]" />
+            <v-text-field
+              v-model="form.name"
+              :label="t('companyName')"
+              variant="outlined"
+              density="comfortable"
+              rounded="lg"
+              :rules="[v => !!String(v || '').trim() || t('required')]"
+              prepend-inner-icon="mdi-domain"
+              autofocus
+            />
           </v-form>
         </v-card-text>
-        <v-card-actions class="px-6 pb-5">
+        <v-card-actions class="px-6 pb-5" style="gap:8px">
           <v-spacer />
-          <v-btn variant="text" @click="dialog=false">{{ t('cancel') }}</v-btn>
-          <v-btn color="primary" variant="flat" rounded="lg" :loading="saving" @click="save">{{ t('save') }}</v-btn>
+          <v-btn variant="tonal" rounded="pill" @click="dialog = false">{{ t('cancel') }}</v-btn>
+          <v-btn color="primary" variant="flat" rounded="pill" :loading="saving" @click="save" prepend-icon="mdi-check">
+            {{ t('save') }}
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- Delete warning dialog -->
-    <v-dialog v-model="deleteDialog" max-width="500" persistent transition="dialog-transition">
-      <v-card rounded="xl" class="delete-warning-card" elevation="16">
-        <!-- Header with gradient background -->
-        <div class="delete-warning-header">
-          <v-icon size="40" color="white" class="mb-2">mdi-alert-circle</v-icon>
-          <div class="delete-warning-header-text">
-            <div class="delete-title">PERMANENT DELETION</div>
-            <div class="delete-subtitle">This action cannot be undone</div>
-          </div>
+    <!-- Delete Confirmation Dialog -->
+    <v-dialog v-model="deleteDialog" max-width="480" persistent transition="dialog-transition">
+      <v-card rounded="xl" class="cp-delete-card" elevation="16">
+        <div class="cp-delete-header">
+          <v-icon size="36" color="white">mdi-alert-circle</v-icon>
+          <div class="cp-delete-header-title">Permanent Deletion</div>
+          <div class="cp-delete-header-sub">This action cannot be undone</div>
         </div>
-        
-        <v-card-text class="px-6 pt-6 pb-6">
-          <div class="delete-warning-content">
-            <!-- Company to be deleted -->
-            <div class="delete-section">
-              <p class="delete-label">You are about to permanently delete:</p>
-              <v-chip 
-                color="error" 
-                variant="tonal" 
-                size="x-large" 
-                class="delete-company-chip"
-                prepend-icon="mdi-domain"
-              >
-                <span class="font-weight-bold">{{ deletingCompany?.company }}</span>
-              </v-chip>
-            </div>
 
-            <!-- Items to be deleted -->
-            <div class="delete-section mt-6">
-              <p class="delete-label mb-3">This will also permanently delete:</p>
-              <div class="delete-items">
-                <div v-if="deletingCompany?.ordersCount > 0" class="delete-item">
-                  <v-icon size="20" color="#1976D2" class="mr-2">mdi-clipboard-list</v-icon>
-                  <span><strong>{{ deletingCompany?.ordersCount }}</strong> order(s)</span>
-                </div>
-                <div v-if="deletingCompany?.paymentsCount > 0" class="delete-item">
-                  <v-icon size="20" color="#7B1FA2" class="mr-2">mdi-credit-card</v-icon>
-                  <span><strong>{{ deletingCompany?.paymentsCount }}</strong> payment(s)</span>
-                </div>
-                <div v-if="deletingCompany?.productionCount > 0" class="delete-item">
-                  <v-icon size="20" color="#F57C00" class="mr-2">mdi-factory</v-icon>
-                  <span><strong>{{ deletingCompany?.productionCount }}</strong> production record(s)</span>
-                </div>
-                <div v-if="deletingCompany?.noolCount > 0" class="delete-item">
-                  <v-icon size="20" color="#C62828" class="mr-2">mdi-yarn</v-icon>
-                  <span><strong>{{ deletingCompany?.noolCount }}</strong> nool entry(ies)</span>
-                </div>
-                <div v-if="!deletingCompany?.ordersCount && !deletingCompany?.paymentsCount && !deletingCompany?.productionCount && !deletingCompany?.noolCount" class="delete-item">
-                  <v-icon size="20" color="#558B2F" class="mr-2">mdi-check-circle</v-icon>
-                  <span>No related records found</span>
-                </div>
+        <v-card-text class="px-6 pt-5 pb-5">
+          <div class="cp-delete-body">
+            <p class="cp-delete-label">You are about to permanently delete:</p>
+            <v-chip color="error" variant="tonal" size="large" class="cp-delete-chip" prepend-icon="mdi-domain">
+              <span class="font-weight-bold">{{ deletingCompany?.company }}</span>
+            </v-chip>
+
+            <div v-if="deletingCompany" class="cp-delete-items mt-5">
+              <div v-if="deletingCompany.ordersCount > 0" class="cp-delete-item">
+                <v-icon size="18" color="#1976D2">mdi-clipboard-list</v-icon>
+                <span><strong>{{ deletingCompany.ordersCount }}</strong> order(s)</span>
+              </div>
+              <div v-if="deletingCompany.paymentsCount > 0" class="cp-delete-item">
+                <v-icon size="18" color="#7B1FA2">mdi-credit-card</v-icon>
+                <span><strong>{{ deletingCompany.paymentsCount }}</strong> payment(s)</span>
+              </div>
+              <div v-if="deletingCompany.productionCount > 0" class="cp-delete-item">
+                <v-icon size="18" color="#F57C00">mdi-factory</v-icon>
+                <span><strong>{{ deletingCompany.productionCount }}</strong> production record(s)</span>
+              </div>
+              <div v-if="deletingCompany.noolCount > 0" class="cp-delete-item">
+                <v-icon size="18" color="#C62828">mdi-yarn</v-icon>
+                <span><strong>{{ deletingCompany.noolCount }}</strong> nool entry(ies)</span>
+              </div>
+              <div v-if="!deletingCompany.ordersCount && !deletingCompany.paymentsCount && !deletingCompany.productionCount && !deletingCompany.noolCount" class="cp-delete-item cp-delete-item-safe">
+                <v-icon size="18" color="#558B2F">mdi-check-circle</v-icon>
+                <span>No related records found</span>
               </div>
             </div>
 
-            <!-- Warning box -->
-            <div class="delete-warning-box mt-6">
-              <v-icon size="24" color="#E65100" class="mr-2">mdi-alert</v-icon>
-              <div>
-                <div class="warning-title">⚠️ No Backups?</div>
-                <div class="warning-text">Make sure you have backups before proceeding. This action is permanent and cannot be reversed.</div>
-              </div>
+            <div class="cp-delete-warning mt-5">
+              <v-icon size="20" color="#E65100">mdi-alert</v-icon>
+              <span>Make sure you have backups before proceeding.</span>
             </div>
           </div>
         </v-card-text>
 
-        <!-- Actions -->
-        <v-card-actions class="px-6 pb-6">
+        <v-card-actions class="px-6 pb-5">
           <v-spacer />
-          <v-btn 
-            variant="outlined" 
-            color="default"
-            rounded="lg"
-            size="large"
-            @click="deleteDialog = false" 
-            :loading="deleting"
-            class="cancel-btn"
-          >
-            Cancel
-          </v-btn>
-          <v-btn 
-            color="error" 
-            variant="flat" 
-            rounded="lg"
-            size="large"
-            :loading="deleting" 
-            @click="confirmDelete"
-            prepend-icon="mdi-trash-can"
-            class="delete-btn"
-          >
-            Delete Permanently
-          </v-btn>
+          <v-btn variant="outlined" rounded="lg" @click="deleteDialog = false" :disabled="deleting">Cancel</v-btn>
+          <v-btn color="error" variant="flat" rounded="lg" :loading="deleting" @click="confirmDelete" prepend-icon="mdi-trash-can">Delete</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -148,18 +164,18 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useCompanyStore } from '@/stores/index'
-import { useConfirm } from '@/composables/useConfirm'
 import { useNotify } from '@/composables/useNotify'
-import PageHeader from '@/components/common/PageHeader.vue'
-import AgTable from '@/components/common/AgTable.vue'
 import api from '@/plugins/axios'
 
 const { t } = useI18n()
-const store  = useCompanyStore()
-const route  = useRoute()
-const { confirm } = useConfirm()
+const store = useCompanyStore()
+const route = useRoute()
 const { notify } = useNotify()
-const search = ref(''); const dialog = ref(false); const saving = ref(false); const editId = ref(null)
+
+const search = ref('')
+const dialog = ref(false)
+const saving = ref(false)
+const editId = ref(null)
 const formRef = ref()
 const form = ref({ name: '' })
 
@@ -170,22 +186,30 @@ const deleting = ref(false)
 
 const totalCompanies = computed(() => store.items.length)
 
-const cols = [
-  { field: 'name',             headerName: t('companyName'),      flex: 1.8 },
-  { headerName: t('actions'), flex: 1, sortable: false, filter: false,
-    cellRenderer: p => `<div style="display:flex;gap:4px;padding-top:8px">
-      <button data-id="${p.data._id}" data-action="edit" style="background:#E3F2FD;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;color:#1565C0;font-size:12px;font-weight:600">Edit</button>
-      <button data-id="${p.data._id}" data-action="delete" style="background:#FFEBEE;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;color:#C62828;font-size:12px;font-weight:600">Delete</button>
-    </div>`,
-    onCellClicked: async e => {
-      const action = e.event.target?.dataset?.action
-      const id     = e.event.target?.dataset?.id
-      if (!action || !id) return
-      if (action === 'edit') open(store.items.find(x => x._id === id))
-      if (action === 'delete') await handleDelete(id)
-    }
-  },
-]
+const filteredCompanies = computed(() => {
+  if (!search.value) return store.items
+  const q = search.value.toLowerCase()
+  return store.items.filter(c => c.name?.toLowerCase().includes(q))
+})
+
+function nameColor(str) {
+  const palette = ['#1565C0','#2E7D32','#6A1B9A','#C62828','#F57C00','#00838F','#AD1457','#37474F','#4527A0','#558B2F']
+  let h = 0
+  for (let i = 0; i < (str || '').length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0 }
+  return palette[Math.abs(h) % palette.length]
+}
+
+function nameColorLight(str) {
+  const palette = ['#42a5f5','#66bb6a','#ab47bc','#ef5350','#ffa726','#26c6da','#ec407a','#78909c','#7e57c2','#9ccc65']
+  let h = 0
+  for (let i = 0; i < (str || '').length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0 }
+  return palette[Math.abs(h) % palette.length]
+}
+
+function nameInitials(name) {
+  const w = String(name || '').trim().split(/\s+/)
+  return w.length >= 2 ? (w[0][0] + w[1][0]).toUpperCase() : String(name || '?').slice(0, 2).toUpperCase()
+}
 
 async function handleDelete(id) {
   deleting.value = true
@@ -240,253 +264,459 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.company-table-shell {
-  border-radius: 18px !important;
+.companies-page {
+  animation: fadeIn 0.5s ease-out;
 }
 
-.company-toolbar {
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== HERO ===== */
+.cp-hero {
+  position: relative;
+  border-radius: 22px;
+  overflow: hidden;
+  margin-bottom: 28px;
+  padding: 34px 32px;
+}
+
+.cp-hero-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #0d47a1 0%, #1565C0 25%, #1976d2 50%, #1e88e5 75%, #42a5f5 100%);
+  z-index: 0;
+}
+
+.cp-hero-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 10% 90%, rgba(255,255,255,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 10%, rgba(255,255,255,0.12) 0%, transparent 40%);
+}
+
+.cp-hero-bg::after {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -50px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.04);
+  border: 2px solid rgba(255,255,255,0.06);
+}
+
+.cp-hero-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid #e0e7ef;
-  background: linear-gradient(90deg, #f8fcff 0%, #f4fbf7 100%);
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
-.company-toolbar-left {
+.cp-hero-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
 }
 
-.company-toolbar-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #27476e;
+.cp-hero-icon {
+  width: 54px;
+  height: 54px;
+  background: rgba(255,255,255,0.14);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.18);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
 }
 
-.company-search {
-  max-width: 320px;
-}
-
-.stat-mini {
-  padding: 14px;
-  border-radius: 14px !important;
-}
-
-.stat-mini-label {
-  font-size: 12px;
-  color: #5a6a85;
-}
-
-.stat-mini-value {
-  margin-top: 4px;
-  font-size: 26px;
+.cp-hero-title {
+  font-size: 24px;
   font-weight: 800;
-  color: #1a237e;
-}
-
-.stat-mini-info {
-  background: linear-gradient(135deg, #E3F2FD 0%, #F3E5F5 100%);
-}
-
-.delete-warning-card {
-  border: none !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15) !important;
-  overflow: hidden;
-}
-
-.delete-warning-header {
-  background: linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%);
   color: white;
-  padding: 32px 24px;
+  margin: 0;
+  letter-spacing: -0.4px;
+}
+
+.cp-hero-sub {
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  margin: 3px 0 0;
+  font-weight: 500;
+}
+
+.cp-hero-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cp-search-wrap {
+  width: 220px;
+}
+
+.cp-search {
+  background: rgba(255,255,255,0.15) !important;
+  backdrop-filter: blur(8px);
+  border-radius: 40px !important;
+}
+
+.cp-search :deep(.v-field) {
+  background: rgba(255,255,255,0.12) !important;
+  border: 1px solid rgba(255,255,255,0.2) !important;
+  color: white !important;
+}
+
+.cp-search :deep(.v-field input) {
+  color: white !important;
+}
+
+.cp-search :deep(.v-field input::placeholder) {
+  color: rgba(255,255,255,0.6) !important;
+}
+
+.cp-search :deep(.v-icon) {
+  color: rgba(255,255,255,0.7) !important;
+}
+
+.cp-add-btn {
+  background: white !important;
+  color: #1565C0 !important;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 0 20px !important;
+  height: 40px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+  transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+
+.cp-add-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2) !important;
+}
+
+/* ===== GRID ===== */
+.cp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+/* ===== CARD ===== */
+.cp-card {
+  position: relative;
+  background: white;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid #eaeef5;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+  animation: cardIn 0.5s ease-out both;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.cp-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 50px rgba(21,101,192,0.12), 0 8px 20px rgba(0,0,0,0.06);
+  border-color: transparent;
+}
+
+.cp-card-accent {
+  height: 4px;
+  width: 100%;
+}
+
+.cp-card-body {
+  padding: 24px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.cp-card-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+  color: white;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  margin-bottom: 14px;
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s;
+}
+
+.cp-card:hover .cp-card-avatar {
+  transform: scale(1.08);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.2);
+}
+
+.cp-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a2b49;
+  line-height: 1.3;
+  margin-bottom: 16px;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.cp-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all 0.25s ease;
+}
+
+.cp-card:hover .cp-card-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.cp-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cp-action-edit {
+  background: #e3f2fd;
+  color: #1565C0;
+}
+
+.cp-action-edit:hover {
+  background: #bbdefb;
+  box-shadow: 0 2px 8px rgba(21,101,192,0.2);
+}
+
+.cp-action-delete {
+  background: #fce4ec;
+  color: #c62828;
+  padding: 6px 8px;
+}
+
+.cp-action-delete:hover {
+  background: #ffcdd2;
+  box-shadow: 0 2px 8px rgba(198,40,40,0.2);
+}
+
+/* Card transitions */
+.card-enter-active,
+.card-leave-active {
+  transition: all 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+.card-enter-from {
+  opacity: 0;
+  transform: translateY(20px) scale(0.94);
+}
+.card-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+/* ===== EMPTY STATE ===== */
+.cp-empty {
+  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 80px 20px;
+}
+
+.cp-empty-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #f5f7fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.cp-empty-text {
+  font-size: 16px;
+  font-weight: 700;
+  color: #546e7a;
+  margin: 0;
+}
+
+.cp-empty-hint {
+  font-size: 13px;
+  color: #90a4ae;
+  margin: 4px 0 0;
+}
+
+/* ===== FORM DIALOG ===== */
+.cp-form-card {
+  overflow: hidden;
+}
+
+.cp-form-header {
+  background: linear-gradient(135deg, #0d47a1 0%, #1976d2 50%, #42a5f5 100%);
+  padding: 22px 22px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cp-form-header-icon {
+  width: 42px;
+  height: 42px;
+  background: rgba(255,255,255,0.16);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cp-form-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: white;
+}
+
+.cp-form-sub {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+}
+
+/* ===== DELETE DIALOG ===== */
+.cp-delete-card {
+  overflow: hidden;
+  border: none !important;
+}
+
+.cp-delete-header {
+  background: linear-gradient(135deg, #c62828 0%, #b71c1c 50%, #880e4f 100%);
+  color: white;
+  padding: 30px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
   position: relative;
   overflow: hidden;
 }
 
-.delete-warning-header::before {
+.cp-delete-header::before {
   content: '';
   position: absolute;
-  top: -50%;
-  right: -10%;
-  width: 200px;
-  height: 200px;
-  background: rgba(255, 255, 255, 0.1);
+  top: -40%;
+  right: -15%;
+  width: 180px;
+  height: 180px;
+  background: rgba(255,255,255,0.06);
   border-radius: 50%;
 }
 
-.delete-warning-header::after {
-  content: '';
-  position: absolute;
-  bottom: -60%;
-  left: -5%;
-  width: 150px;
-  height: 150px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 50%;
+.cp-delete-header-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin-top: 6px;
 }
 
-.delete-warning-header-text {
-  position: relative;
-  z-index: 1;
-}
-
-.delete-title {
-  font-size: 20px;
-  font-weight: 900;
-  letter-spacing: 0.5px;
-  margin-top: 8px;
-}
-
-.delete-subtitle {
+.cp-delete-header-sub {
   font-size: 12px;
-  opacity: 0.9;
-  margin-top: 4px;
+  opacity: 0.8;
+  margin-top: 2px;
+}
+
+.cp-delete-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #424242;
+  margin: 0 0 10px;
+}
+
+.cp-delete-chip {
+  width: 100%;
+  height: 44px;
+  font-size: 14px;
+  background: linear-gradient(135deg, #FFEBEE 0%, #FCE4EC 100%) !important;
+  border: 1.5px solid #EF5350 !important;
+}
+
+.cp-delete-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cp-delete-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  border-left: 3px solid #1976D2;
+  font-size: 13px;
+  color: #424242;
+}
+
+.cp-delete-item:nth-child(2) { border-left-color: #7B1FA2; }
+.cp-delete-item:nth-child(3) { border-left-color: #F57C00; }
+.cp-delete-item:nth-child(4) { border-left-color: #C62828; }
+.cp-delete-item-safe { border-left-color: #558B2F; }
+
+.cp-delete-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #bf360c;
   font-weight: 500;
 }
 
-.delete-warning-content {
-  animation: slideIn 0.3s ease-out;
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .cp-hero { padding: 24px 20px; border-radius: 16px; }
+  .cp-hero-title { font-size: 20px; }
+  .cp-hero-right { width: 100%; }
+  .cp-search-wrap { flex: 1; width: auto; }
+  .cp-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+  .cp-card-body { padding: 18px 14px 16px; }
+  .cp-card-avatar { width: 48px; height: 48px; font-size: 16px; }
+  .cp-card-actions { opacity: 1; transform: none; }
 }
 
-.delete-section {
-  margin-bottom: 16px;
-}
-
-.delete-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #424242;
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.delete-company-chip {
-  width: 100%;
-  height: 48px;
-  font-size: 15px;
-  margin-top: 12px !important;
-  background: linear-gradient(135deg, #FFEBEE 0%, #FCE4EC 100%) !important;
-  border: 2px solid #EF5350 !important;
-}
-
-.delete-items {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.delete-item {
-  display: flex;
-  align-items: center;
-  padding: 12px;
-  background: linear-gradient(90deg, #F5F5F5 0%, #FAFAFA 100%);
-  border-radius: 8px;
-  border-left: 4px solid #2196F3;
-  font-size: 13px;
-  color: #424242;
-  transition: all 0.2s ease;
-  animation: slideInLeft 0.3s ease-out backwards;
-}
-
-.delete-item:nth-child(1) { animation-delay: 0.1s; border-left-color: #1976D2; }
-.delete-item:nth-child(2) { animation-delay: 0.15s; border-left-color: #7B1FA2; }
-.delete-item:nth-child(3) { animation-delay: 0.2s; border-left-color: #F57C00; }
-.delete-item:nth-child(4) { animation-delay: 0.25s; border-left-color: #C62828; }
-.delete-item:nth-child(5) { animation-delay: 0.3s; border-left-color: #558B2F; }
-
-.delete-item:hover {
-  background: #F0F0F0;
-  transform: translateX(4px);
-}
-
-.delete-warning-box {
-  display: flex;
-  gap: 12px;
-  padding: 14px 16px;
-  background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
-  border-radius: 8px;
-  border: 1px solid #FFCC80;
-  animation: slideIn 0.4s ease-out;
-}
-
-.warning-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #E65100;
-  margin-bottom: 2px;
-}
-
-.warning-text {
-  font-size: 12px;
-  color: #BF360C;
-  line-height: 1.4;
-}
-
-.cancel-btn {
-  text-transform: uppercase;
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  transition: all 0.2s ease;
-}
-
-.cancel-btn:hover {
-  background: #F5F5F5 !important;
-}
-
-.delete-btn {
-  text-transform: uppercase;
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-.delete-btn:hover {
-  box-shadow: 0 8px 24px rgba(211, 47, 47, 0.4) !important;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.stat-mini-info .stat-mini-value { color: #1f5ea8; }
-.stat-mini-good .stat-mini-value { color: #2e7d32; }
-@media (max-width: 680px) {
-  .company-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .company-search {
-    max-width: none;
-  }
+@media (max-width: 480px) {
+  .cp-hero-content { flex-direction: column; align-items: stretch; }
+  .cp-hero-left { justify-content: center; }
+  .cp-hero-right { flex-direction: column; }
+  .cp-search-wrap { width: 100%; }
+  .cp-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .cp-card-name { font-size: 13px; }
 }
 </style>

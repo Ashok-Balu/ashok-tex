@@ -13,9 +13,13 @@ const routes = [
       { path: 'companies',  name: 'companies',     component: () => import('@/views/companies/CompaniesView.vue') },
       { path: 'orders',     name: 'orders',        component: () => import('@/views/orders/OrdersView.vue') },
       { path: 'orders/:id', name: 'order-detail',  component: () => import('@/views/orders/OrderDetailView.vue') },
-      { path: 'reports',    name: 'reports',       component: () => import('@/views/reports/ReportsView.vue') },
+      { path: 'allocations', name: 'allocations',  component: () => import('@/views/payment/AllocationsView.vue') },
       { path: 'company-statement', name: 'company-statement', component: () => import('@/views/reports/CompanyStatementView.vue') },
+      { path: 'analytics', name: 'analytics', component: () => import('@/views/analytics/AnalyticsView.vue') },
       { path: 'payroll',    name: 'payroll',       component: () => import('@/views/salary/PayrollView.vue') },
+      // { path: 'financial-intelligence', name: 'financial-intelligence', component: () => import('@/views/financial/FinancialIntelligenceView.vue') }, // HIDDEN - enable when needed
+      // { path: 'financial-intelligence/debts/:id', name: 'financial-intelligence-debt-detail', component: () => import('@/views/financial/DebtDetailView.vue') }, // HIDDEN - enable when needed
+      { path: 'about', name: 'about', component: () => import('@/views/about/AboutView.vue'), meta: { public: true, requiresAuth: false } },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
