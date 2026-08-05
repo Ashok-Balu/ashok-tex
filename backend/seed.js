@@ -1,19 +1,42 @@
-require('dotenv').config()
+const path = require('path')
+const ENV  = process.env.NODE_ENV || 'development'
+require('dotenv').config({ path: path.resolve(__dirname, `.env.${ENV}`) })
 const mongoose = require('mongoose')
 const bcrypt   = require('bcryptjs')
 const { User, Company, MachineSetting } = require('./models')
+
+// Safety check: block production entirely
+if (process.env.NODE_ENV === 'production') {
+  console.log('❌ Cannot run seed in production')
+  process.exit(1)
+}
+
+// Safety check: require --force flag to prevent accidental data loss
+const hasForceFlag = process.argv.includes('--force')
+if (!hasForceFlag) {
+  console.error('❌  ERROR: Seeding requires explicit --force flag to prevent accidental data loss')
+  console.error('   Usage: npm run seed -- --force')
+  console.error('   Or: node seed.js --force')
+  process.exit(1)
+}
 
 async function seed() {
   await mongoose.connect(process.env.MONGO_URI)
   console.log('🔌  Connected to MongoDB')
 
+  console.warn('⚠️  WARNING: This will DELETE all existing data in Users, Companies, and MachineSetting collections!')
+  console.warn('   Press Ctrl+C now if this was not intentional (you have 3 seconds)...\n')
+  
+  // Give user time to cancel
+  await new Promise(resolve => setTimeout(resolve, 3000))
+
   // Users
   await User.deleteMany({})
   await User.insertMany([
-    { username: 'admin',    password: await bcrypt.hash('admin123',    10), role: 'admin' },
-    { username: 'ashok',    password: await bcrypt.hash('ashok123',    10), role: 'user'  },
-    { username: 'arvinth',  password: await bcrypt.hash('arvinth123',  10), role: 'user'  },
-    { username: 'balusamy', password: await bcrypt.hash('balusamy123', 10), role: 'user'  },
+    { username: 'admin',    password: await bcrypt.hash('ashoktex', 10), role: 'admin' },
+    { username: 'ashok',    password: await bcrypt.hash('ashoktex', 10), role: 'user'  },
+    { username: 'arvinth',  password: await bcrypt.hash('ashoktex', 10), role: 'user'  },
+    { username: 'balusamy', password: await bcrypt.hash('ashoktex', 10), role: 'user'  },
   ])
   console.log('✅  Users seeded')
 
@@ -33,10 +56,10 @@ async function seed() {
   console.log('✅  Machine settings seeded')
 
   console.log('\n🎉  Seed complete!')
-  console.log('   admin     / admin123')
-  console.log('   ashok     / ashok123')
-  console.log('   arvinth   / arvinth123')
-  console.log('   balusamy  / balusamy123')
+  console.log('   admin     / ashoktex')
+  console.log('   ashok     / ashoktex')
+  console.log('   arvinth   / ashoktex')
+  console.log('   balusamy  / ashoktex')
 
   await mongoose.disconnect()
 }
