@@ -13,9 +13,20 @@
   --at-danger:    #C62828;
   --at-radius:    12px;
   --at-shadow:    0 2px 12px rgba(21, 101, 192, 0.10);
+  --at-safe-top:    env(safe-area-inset-top, 0px);
+  --at-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --at-safe-left:   env(safe-area-inset-left, 0px);
+  --at-safe-right:  env(safe-area-inset-right, 0px);
 }
 
 * { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
 
 body {
   font-family: var(--at-font) !important;
@@ -23,6 +34,10 @@ body {
     radial-gradient(1000px 420px at -10% -20%, rgba(21, 101, 192, 0.15), transparent 55%),
     radial-gradient(900px 380px at 110% -10%, rgba(46, 125, 50, 0.12), transparent 58%),
     var(--at-bg);
+  padding-top: var(--at-safe-top);
+  padding-bottom: var(--at-safe-bottom);
+  padding-left: var(--at-safe-left);
+  padding-right: var(--at-safe-right);
 }
 
 // ── AG Grid Theme Overrides ────────────────────────────────────────────────────
@@ -72,6 +87,19 @@ body {
   animation: at-rise-in 0.35s ease;
   max-width: 1400px;
   margin: 0 auto;
+}
+
+@media (max-width: 1280px) {
+  .page-container {
+    max-width: none;
+    padding: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-container {
+    padding: 12px;
+  }
 }
 
 .page-header {
@@ -128,13 +156,30 @@ body {
 }
 
 // ── Status Chips ───────────────────────────────────────────────────────────────
-.chip-active   { background: #E3F2FD !important; color: #1565C0 !important; font-weight: 700 !important; }
-.chip-done     { background: #E8F5E9 !important; color: #2E7D32 !important; font-weight: 700 !important; }
-.chip-pending  { background: #FFF3E0 !important; color: #E65100 !important; font-weight: 700 !important; }
-.chip-paid     { background: #E8F5E9 !important; color: #2E7D32 !important; font-weight: 700 !important; }
-.chip-partial  { background: #F3E5F5 !important; color: #7B1FA2 !important; font-weight: 700 !important; }
-.chip-morning  { background: #E3F2FD !important; color: #1565C0 !important; font-weight: 700 !important; }
-.chip-night    { background: #EDE7F6 !important; color: #4527A0 !important; font-weight: 700 !important; }
+.chip-active,
+.chip-done,
+.chip-pending,
+.chip-paid,
+.chip-partial,
+.chip-morning,
+.chip-night {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  white-space: nowrap !important;
+  line-height: 1.15 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+.chip-active   { background: #E3F2FD !important; color: #1565C0 !important; }
+.chip-done     { background: #E8F5E9 !important; color: #2E7D32 !important; }
+.chip-pending  { background: #FFF3E0 !important; color: #E65100 !important; }
+.chip-paid     { background: #E8F5E9 !important; color: #2E7D32 !important; }
+.chip-partial  { background: #F3E5F5 !important; color: #7B1FA2 !important; }
+.chip-morning  { background: #E3F2FD !important; color: #1565C0 !important; }
+.chip-night    { background: #EDE7F6 !important; color: #4527A0 !important; }
 
 // ── Progress bar ───────────────────────────────────────────────────────────────
 .at-progress {
@@ -247,8 +292,437 @@ body {
   width: 100%;
   display: flex;
   gap: 8px;
-  
+
   &.is-editing {
     .prod-submit-btn, .nool-add-btn { flex: 1; }
+  }
+}
+
+// ── Human Avatar (DiceBear) ───────────────────────────────────────────────────
+.emp-human-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #f8fafc;
+  border: 2.5px solid #e8eef6;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    transform: scale(1.08);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    border-color: #94b8db;
+  }
+
+  &--sm {
+    width: 32px;
+    height: 32px;
+    border-width: 2px;
+  }
+}
+
+// ── Mobile Responsive Utilities ───────────────────────────────────────────────
+@media (max-width: 767px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 16px;
+
+    .page-title {
+      font-size: 18px;
+    }
+
+    .page-sub {
+      font-size: 12px;
+    }
+  }
+
+  .v-main {
+    --v-layout-left: 0px !important;
+  }
+
+  .v-dialog > .v-overlay__content {
+    max-width: calc(100vw - 16px) !important;
+    margin: 8px !important;
+  }
+
+  .v-dialog--fullscreen > .v-overlay__content {
+    max-width: 100vw !important;
+    margin: 0 !important;
+  }
+
+  .stat-card {
+    padding: 14px;
+    .stat-value {
+      font-size: 20px;
+    }
+    .stat-icon {
+      width: 38px;
+      height: 38px;
+    }
+  }
+
+  .at-card:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-header .page-title {
+    font-size: 16px;
+  }
+}
+
+// ── Name Avatar ───────────────────────────────────────────────────────────────
+.tex-av-3d {
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  text-shadow: none;
+  background-image: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.12), transparent);
+    pointer-events: none;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── COMPREHENSIVE RESPONSIVE DESIGN SYSTEM ────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Fluid Typography ──────────────────────────────────────────────────────────
+.page-header .page-title {
+  font-size: clamp(16px, 4vw, 22px);
+}
+
+.page-header .page-sub {
+  font-size: clamp(11px, 2.5vw, 13px);
+}
+
+// ── Scrollbar Styling ─────────────────────────────────────────────────────────
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 999px;
+
+  &:hover {
+    background: #94A3B8;
+  }
+}
+
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+}
+
+// ── Touch-Friendly Sizing ─────────────────────────────────────────────────────
+@media (pointer: coarse) {
+  .v-btn:not(.v-btn--icon) {
+    min-height: 40px;
+    min-width: 40px;
+  }
+
+  .v-list-item {
+    min-height: 48px !important;
+  }
+
+  .v-field {
+    min-height: 44px;
+  }
+
+  .v-btn--icon {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+}
+
+// ── Disable Hover Effects on Touch Devices ────────────────────────────────────
+@media (hover: none) {
+  .at-card:hover {
+    transform: none !important;
+    box-shadow: var(--at-shadow) !important;
+  }
+
+  .stat-card:hover,
+  .tex-av-3d:hover {
+    transform: none !important;
+  }
+}
+
+// ── Responsive Visibility Utilities ───────────────────────────────────────────
+.hide-mobile {
+  @media (max-width: 767px) {
+    display: none !important;
+  }
+}
+
+.show-mobile {
+  display: none !important;
+  @media (max-width: 767px) {
+    display: block !important;
+  }
+}
+
+.hide-tablet {
+  @media (min-width: 768px) and (max-width: 1023px) {
+    display: none !important;
+  }
+}
+
+.show-tablet {
+  display: none !important;
+  @media (min-width: 768px) and (max-width: 1023px) {
+    display: block !important;
+  }
+}
+
+.hide-desktop {
+  @media (min-width: 1024px) {
+    display: none !important;
+  }
+}
+
+.show-desktop {
+  display: none !important;
+  @media (min-width: 1024px) {
+    display: block !important;
+  }
+}
+
+// ── Mobile Table Scroll Wrapper ───────────────────────────────────────────────
+.at-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -12px;
+  padding: 0 12px;
+
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 999px;
+  }
+
+  table {
+    min-width: 600px;
+  }
+}
+
+// ── Enhanced Dialog/Modal Handling ────────────────────────────────────────────
+@media (max-width: 599px) {
+  .v-dialog > .v-overlay__content {
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100vh - var(--at-safe-top) - var(--at-safe-bottom) - 16px) !important;
+    margin: 8px !important;
+  }
+
+  .v-dialog--fullscreen > .v-overlay__content {
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    padding-top: var(--at-safe-top);
+    padding-bottom: var(--at-safe-bottom);
+  }
+
+  .v-dialog > .v-overlay__content > .v-card {
+    border-radius: 12px !important;
+  }
+
+  .v-dialog--fullscreen > .v-overlay__content > .v-card {
+    border-radius: 0 !important;
+  }
+}
+
+// ── Small Laptop (768px - 1024px) ─────────────────────────────────────────────
+@media (min-width: 768px) and (max-width: 1024px) {
+  .page-container {
+    padding: 16px;
+  }
+
+  .stat-card {
+    padding: 16px;
+    .stat-value {
+      font-size: 22px;
+    }
+  }
+
+  .at-card {
+    border-radius: 10px !important;
+  }
+}
+
+// ── Tablet (480px - 768px) ────────────────────────────────────────────────────
+@media (min-width: 480px) and (max-width: 767px) {
+  .page-container {
+    padding: 12px;
+    min-height: calc(100vh - 52px);
+  }
+
+  .stat-card {
+    padding: 14px;
+    .stat-value {
+      font-size: 20px;
+    }
+    .stat-icon {
+      width: 38px;
+      height: 38px;
+    }
+  }
+
+  .v-main {
+    --v-layout-left: 0px !important;
+  }
+}
+
+// ── Mobile (< 480px) ─────────────────────────────────────────────────────────
+@media (max-width: 479px) {
+  .page-container {
+    padding: 10px 8px;
+    min-height: calc(100vh - 52px);
+  }
+
+  .stat-card {
+    padding: 12px;
+    .stat-value {
+      font-size: 18px;
+    }
+    .stat-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+    }
+    .stat-label {
+      font-size: 10px;
+      letter-spacing: 0.8px;
+    }
+  }
+
+  .at-card {
+    border-radius: 10px !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
+  }
+
+  .v-btn {
+    font-size: 13px !important;
+  }
+
+  .tex-av-3d {
+    border-radius: 8px;
+  }
+
+  .v-main {
+    --v-layout-left: 0px !important;
+  }
+}
+
+// ── Safe Area Bottom Padding for Fixed Elements ───────────────────────────────
+.at-fixed-bottom {
+  padding-bottom: calc(12px + var(--at-safe-bottom));
+}
+
+// ── Pull-to-refresh style overscroll ──────────────────────────────────────────
+@media (max-width: 767px) {
+  html, body {
+    overscroll-behavior-y: contain;
+  }
+}
+
+// ── Responsive AG Grid ────────────────────────────────────────────────────────
+@media (max-width: 767px) {
+  .ag-theme-quartz {
+    --ag-row-height: 42px;
+    --ag-header-height: 38px;
+    --ag-cell-horizontal-padding: 8px;
+    --ag-font-size: 11px;
+
+    .ag-header-cell-label {
+      font-size: 9.5px;
+      letter-spacing: 0.5px;
+    }
+
+    .ag-paging-panel {
+      font-size: 11px;
+      padding: 6px 8px;
+    }
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .ag-theme-quartz {
+    --ag-row-height: 42px;
+    --ag-header-height: 40px;
+    --ag-cell-horizontal-padding: 10px;
+    --ag-font-size: 12px;
+  }
+}
+
+// ── Responsive V-Row Spacing ──────────────────────────────────────────────────
+@media (max-width: 767px) {
+  .v-row {
+    margin: -4px !important;
+    > .v-col,
+    > [class*="v-col-"] {
+      padding: 4px !important;
+    }
+  }
+}
+
+// ── Responsive Navigation Drawer ──────────────────────────────────────────────
+@media (max-width: 767px) {
+  .v-navigation-drawer {
+    padding-top: var(--at-safe-top);
+  }
+}
+
+// ── Responsive App Bar ────────────────────────────────────────────────────────
+@media (max-width: 767px) {
+  .at-appbar {
+    padding-left: var(--at-safe-left) !important;
+    padding-right: var(--at-safe-right) !important;
   }
 }

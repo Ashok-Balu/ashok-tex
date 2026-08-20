@@ -2,6 +2,7 @@ const router   = require('express').Router()
 const ah       = require('express-async-handler')
 const auth     = require('../middleware/auth')
 const { Payment } = require('../models')
+const { getCompanyBalance } = require('../services/companyBalance')
 
 router.use(auth)
 
@@ -18,12 +19,16 @@ router.get('/', ah(async (req, res) => {
   res.json(await Payment.find(f)
     .populate('company', 'name')
     .populate('order', 'orderName deductionPct')
-    .sort({ date: -1 }))
+    .sort({ date: -1 })
+    .lean())
 }))
 
 router.post('/', ah(async (req, res) => {
   const payload = { ...req.body }
   payload.company = payload.company || payload.companyId
+  if (payload.order) {
+    return res.status(400).json({ message: 'Direct order payment is disabled. Use allocation module.' })
+  }
   const doc = await Payment.create(payload)
   await doc.populate('company', 'name')
   await doc.populate('order', 'orderName deductionPct')
@@ -33,6 +38,9 @@ router.post('/', ah(async (req, res) => {
 router.put('/:id', ah(async (req, res) => {
   const payload = { ...req.body }
   payload.company = payload.company || payload.companyId
+  if (payload.order) {
+    return res.status(400).json({ message: 'Direct order payment is disabled. Use allocation module.' })
+  }
   const doc = await Payment.findByIdAndUpdate(req.params.id, payload, { new: true })
     .populate('company', 'name')
     .populate('order', 'orderName deductionPct')
@@ -41,8 +49,21 @@ router.put('/:id', ah(async (req, res) => {
 }))
 
 router.delete('/:id', ah(async (req, res) => {
+  const payment = await Payment.findById(req.params.id).lean()
+  if (!payment) return res.status(404).json({ message: 'Not found' })
+
+  // Check if deletion will cause negative balance
+  let warning = null
+  if (payment.company && payment.transactionType !== 'deduction') {
+    const { balance } = await getCompanyBalance(payment.company)
+    const balanceAfterDelete = balance - Number(payment.amount || 0)
+    if (balanceAfterDelete < 0) {
+      warning = `Company balance will become negative (₹${Math.round(balanceAfterDelete)})`
+    }
+  }
+
   await Payment.findByIdAndDelete(req.params.id)
-  res.json({ message: 'Deleted' })
+  res.json({ message: 'Deleted', warning })
 }))
 
 module.exports = router

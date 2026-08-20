@@ -3,7 +3,7 @@ const router  = require('express').Router()
 const ah      = require('express-async-handler')
 const auth    = require('../middleware/auth')
 const mongoose = require('mongoose')
-const { Company, Order, Payment, Production, Nool } = require('../models')
+const { Company, Order, Payment, PaymentAllocation, Production, Rejection, Nool } = require('../models')
 
 router.use(auth)
 router.get('/',     ah(async (_, res) => res.json(await Company.find().sort({ name: 1 }))))
@@ -47,6 +47,10 @@ router.get('/:id/deletion-stats', ah(async (req, res) => {
 
 // Delete company with cascading deletes
 router.delete('/:id', ah(async (req, res) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ message: 'Forbidden – admin only' })
+  }
+
   const { id } = req.params
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ message: 'Invalid company id' })
@@ -63,7 +67,9 @@ router.delete('/:id', ah(async (req, res) => {
 
   // Delete all related data in order
   await Production.deleteMany({ order: { $in: orderIds } })
+  await Rejection.deleteMany({ order: { $in: orderIds } })
   await Nool.deleteMany({ order: { $in: orderIds } })
+  await PaymentAllocation.deleteMany({ company: id })
   await Payment.deleteMany({ $or: [{ company: id }, { order: { $in: orderIds } }] })
   await Order.deleteMany({ company: id })
 

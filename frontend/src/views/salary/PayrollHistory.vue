@@ -1,69 +1,70 @@
 <template>
-  <div class="history">
-    <v-card class="mb-4" elevation="2">
-      <v-card-text class="pb-2">
-        <v-row dense align="center">
-          <v-col cols="6" md="3">
-            <v-select
-              v-model="selectedMonth"
-              :items="months"
-              label="Month"
-              variant="outlined"
-              density="compact"
-              item-title="label"
-              item-value="value"
-              @update:modelValue="onMonthYearChange"
-            />
-          </v-col>
-          <v-col cols="6" md="3">
-            <v-select
-              v-model="selectedYear"
-              :items="years"
-              label="Year"
-              variant="outlined"
-              density="compact"
-              @update:modelValue="onMonthYearChange"
-            />
-          </v-col>
-          <v-col cols="12" md="6" class="d-flex gap-2 flex-wrap">
-            <v-chip v-if="runs.length" color="primary" variant="tonal">
-              {{ runs.length }} run{{ runs.length !== 1 ? 's' : '' }}
-            </v-chip>
-            <v-chip v-if="runs.length" color="success" variant="tonal">
-              Gross: Rs.{{ fmt(grandGross) }}
-            </v-chip>
-            <v-chip v-if="runs.length" color="error" variant="tonal">
-              Deduction: Rs.{{ fmt(grandDeduction) }}
-            </v-chip>
-            <v-chip v-if="runs.length" color="info" variant="tonal">
-              Deduction Returned: Rs.{{ fmt(grandDeductionReturned) }}
-            </v-chip>
-            <v-chip v-if="runs.length" :color="grandOutstanding > 0 ? 'warning' : 'success'" variant="tonal">
-              Pending: Rs.{{ fmt(grandOutstanding) }}
-            </v-chip>
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
+  <div class="history-root">
+    <!-- Filter Bar -->
+    <div class="filter-bar mb-4">
+      <div class="d-flex align-center gap-3 flex-wrap">
+        <v-select
+          v-model="selectedMonth"
+          :items="months"
+          label="Month"
+          variant="outlined"
+          density="compact"
+          item-title="label"
+          item-value="value"
+          hide-details
+          bg-color="white"
+          rounded="lg"
+          style="min-width:140px"
+          @update:modelValue="onMonthYearChange"
+        />
+        <v-select
+          v-model="selectedYear"
+          :items="years"
+          label="Year"
+          variant="outlined"
+          density="compact"
+          hide-details
+          bg-color="white"
+          rounded="lg"
+          style="min-width:95px"
+          @update:modelValue="onMonthYearChange"
+        />
+        <div class="d-flex gap-2 flex-wrap ml-2" v-if="runs.length">
+          <div class="summary-chip summary-chip--blue">{{ runs.length }} Run{{ runs.length !== 1 ? 's' : '' }}</div>
+          <div class="summary-chip summary-chip--green">Gross: Rs.{{ fmt(grandGross) }}</div>
+          <div class="summary-chip summary-chip--red">Deduction: Rs.{{ fmt(grandDeduction) }}</div>
+          <div class="summary-chip summary-chip--blue">Returned: Rs.{{ fmt(grandDeductionReturned) }}</div>
+          <div class="summary-chip" :class="grandOutstanding > 0 ? 'summary-chip--red' : 'summary-chip--green'">
+            Pending: Rs.{{ fmt(grandOutstanding) }}
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-4" />
+    <v-progress-linear v-if="loading" indeterminate color="primary" rounded class="mb-4" />
 
-    <v-alert v-if="!loading && !runs.length" type="info" variant="tonal" class="mb-4">
-      No payroll records for {{ monthName }} {{ selectedYear }}.
-    </v-alert>
+    <div v-if="!loading && !runs.length" class="empty-state">
+      <div class="empty-icon-wrap mb-3">
+        <v-icon icon="mdi-calendar-blank-outline" size="40" color="primary" />
+      </div>
+      <div class="text-subtitle-1 font-weight-medium mb-1">No payroll records</div>
+      <div class="text-caption text-medium-emphasis">for {{ monthName }} {{ selectedYear }}</div>
+    </div>
 
-    <v-card v-if="!loading && runs.length" class="mb-4" elevation="2">
-      <v-card-title class="py-3 px-4 text-subtitle-1 font-weight-bold">
-        Employee Summary - {{ monthName }} {{ selectedYear }}
-      </v-card-title>
+    <div v-if="!loading && runs.length" class="history-card mb-4">
+      <div class="history-card__title">
+        <v-icon icon="mdi-account-group" size="18" class="mr-2" color="primary" />
+        Employee Summary — {{ monthName }} {{ selectedYear }}
+      </div>
       <v-divider />
 
       <div v-for="row in employeeSummary" :key="row.rowKey" class="emp-group">
-        <div class="emp-summary-row" style="cursor:pointer" @click="toggleExpand(row.rowKey)">
+        <div class="emp-summary-row" @click="toggleExpand(row.rowKey)">
           <div class="emp-summary-left">
+            <div class="tex-av-3d" style="width:38px;height:38px;font-size:14px;margin-right:10px" :style="{ backgroundColor: nameColor(row.name) }">{{ nameInitials(row.name) }}</div>
             <div>
-              <div class="font-weight-bold">{{ row.name }}</div>
-              <div class="text-caption text-medium-emphasis">
+              <div class="emp-name">{{ row.name }}</div>
+              <div class="emp-meta">
                 {{ row.entries.length }} period{{ row.entries.length !== 1 ? 's' : '' }} · {{ row.totalDays }} days worked
               </div>
             </div>
@@ -76,64 +77,51 @@
             </div>
             <div class="emp-stat">
               <div class="emp-stat-label">Deduction</div>
-              <div class="emp-stat-val text-red">Rs.{{ fmt(row.totalDeduction) }}</div>
+              <div class="emp-stat-val emp-stat-val--red">Rs.{{ fmt(row.totalDeduction) }}</div>
             </div>
             <div class="emp-stat">
-              <div class="emp-stat-label">Ded. Returned</div>
-              <div class="emp-stat-val text-blue">Rs.{{ fmt(row.totalDeductionReturned) }}</div>
+              <div class="emp-stat-label">Returned</div>
+              <div class="emp-stat-val emp-stat-val--blue">Rs.{{ fmt(row.totalDeductionReturned) }}</div>
             </div>
             <div class="emp-stat">
-              <div class="emp-stat-label">Carry Forward</div>
-              <div :class="['emp-stat-val', row.carryForwardPending > 0 ? 'text-red' : 'text-green']">
+              <div class="emp-stat-label">Carry Fwd</div>
+              <div class="emp-stat-val" :class="row.carryForwardPending > 0 ? 'emp-stat-val--red' : 'emp-stat-val--green'">
                 {{ row.carryForwardPending > 0 ? `Rs.${fmt(row.carryForwardPending)}` : 'Nil' }}
               </div>
             </div>
             <div class="emp-stat">
-              <div class="emp-stat-label">Salary Paid</div>
-              <div class="emp-stat-val text-blue">Rs.{{ fmt(row.totalSalaryPaid) }}</div>
+              <div class="emp-stat-label">Paid</div>
+              <div class="emp-stat-val emp-stat-val--blue">Rs.{{ fmt(row.totalSalaryPaid) }}</div>
             </div>
             <div class="emp-stat">
               <div class="emp-stat-label">Pending</div>
-              <div :class="['emp-stat-val', row.totalOutstanding > 0 ? 'text-red font-weight-bold' : 'text-green']">
+              <div class="emp-stat-val font-weight-bold" :class="row.totalOutstanding > 0 ? 'emp-stat-val--red' : 'emp-stat-val--green'">
                 {{ row.totalOutstanding > 0 ? `Rs.${fmt(row.totalOutstanding)}` : 'Paid' }}
               </div>
             </div>
           </div>
 
           <div class="emp-summary-actions" @click.stop>
-            <v-chip :color="statusColor(row.status)" size="small" class="mr-2">{{ row.status }}</v-chip>
+            <span class="hist-status-badge" :class="`hist-status--${row.status}`">{{ row.status }}</span>
             <v-btn
               v-if="row.employeeId && (row.totalOutstanding > 0 || row.totalDeduction > row.totalDeductionReturned)"
-              size="small"
-              color="primary"
-              variant="tonal"
-              prepend-icon="mdi-cash"
-              text="Pay"
-              class="mr-1"
+              size="small" color="primary" variant="tonal" rounded="lg"
+              prepend-icon="mdi-cash" text="Pay"
               @click="openPayFromSummary(row)"
             />
-            <v-btn
-              size="small"
-              color="teal"
-              variant="tonal"
-              icon="mdi-file-pdf-box"
-              class="mr-1"
-              title="Download Payslip"
+            <v-btn size="small" color="teal" variant="tonal" rounded="lg"
+              icon="mdi-file-pdf-box" title="Download Payslip"
               @click="downloadPdf(row)"
             />
             <v-btn
-              size="small"
-              color="green"
-              variant="tonal"
-              icon="mdi-whatsapp"
-              title="Send via WhatsApp"
+              size="small" color="green" variant="tonal" rounded="lg"
+              icon="mdi-whatsapp" title="Send via WhatsApp"
               :loading="sendingWhatsappId === row.rowKey"
               :disabled="!row.employeeId"
               @click="shareWhatsApp(row)"
             />
             <v-btn
-              size="small"
-              variant="text"
+              size="small" variant="text" color="primary"
               :icon="expandedRows[row.rowKey] ? 'mdi-chevron-up' : 'mdi-chevron-down'"
               @click="toggleExpand(row.rowKey)"
             />
@@ -143,7 +131,8 @@
         <div v-if="expandedRows[row.rowKey]" class="emp-detail">
           <div class="detail-section">
             <div class="detail-section-title">
-              Period Salary Runs - {{ monthName }} {{ selectedYear }}
+              <v-icon icon="mdi-calendar-range" size="14" class="mr-1" />
+              Period Salary Runs — {{ monthName }} {{ selectedYear }}
             </div>
             <div class="detail-meta">
               Carry-forward pending before this month: <strong>Rs.{{ fmt(row.carryForwardPending) }}</strong>
@@ -152,16 +141,9 @@
               <table class="runs-table">
                 <thead>
                   <tr>
-                    <th>From</th>
-                    <th>To</th>
-                    <th>Days</th>
-                    <th>Wage / Day</th>
-                    <th>Gross</th>
-                    <th>Deduction</th>
-                    <th>Net</th>
-                    <th>Ded. Returned</th>
-                    <th>Salary Pending</th>
-                    <th>Status</th>
+                    <th>From</th><th>To</th><th>Days</th><th>Wage/Day</th>
+                    <th>Gross</th><th>Deduction</th><th>Net</th>
+                    <th>Returned</th><th>Pending</th><th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -171,10 +153,10 @@
                     <td>{{ entry.daysWorked }}</td>
                     <td>Rs.{{ fmt(entry.dailyWage) }}</td>
                     <td>Rs.{{ fmt(entry.totalWages) }}</td>
-                    <td class="text-red">Rs.{{ fmt(entry.deductionAmount) }}</td>
-                    <td class="text-green font-weight-bold">Rs.{{ fmt(entry.netSalary) }}</td>
-                    <td class="text-blue">Rs.{{ fmt(entry.deductionPaidBack) }}</td>
-                    <td class="text-red">Rs.{{ fmt(entry.amountPending) }}</td>
+                    <td class="c-red">Rs.{{ fmt(entry.deductionAmount) }}</td>
+                    <td class="c-green font-weight-bold">Rs.{{ fmt(entry.netSalary) }}</td>
+                    <td class="c-blue">Rs.{{ fmt(entry.deductionPaidBack) }}</td>
+                    <td class="c-red">Rs.{{ fmt(entry.amountPending) }}</td>
                     <td>
                       <span :class="['run-badge', `run-badge--${entry.paymentStatus}`]">
                         {{ entry.paymentStatus }}
@@ -186,13 +168,13 @@
                   <tr class="runs-total">
                     <td colspan="2"><strong>Total</strong></td>
                     <td><strong>{{ row.totalDays }}</strong></td>
-                    <td>-</td>
+                    <td>—</td>
                     <td><strong>Rs.{{ fmt(row.totalGross) }}</strong></td>
-                    <td class="text-red"><strong>Rs.{{ fmt(row.totalDeduction) }}</strong></td>
-                    <td class="text-green"><strong>Rs.{{ fmt(row.totalNet) }}</strong></td>
-                    <td class="text-blue"><strong>Rs.{{ fmt(row.totalDeductionReturned) }}</strong></td>
-                    <td class="text-red"><strong>Rs.{{ fmt(row.currentMonthPending) }}</strong></td>
-                    <td>-</td>
+                    <td class="c-red"><strong>Rs.{{ fmt(row.totalDeduction) }}</strong></td>
+                    <td class="c-green"><strong>Rs.{{ fmt(row.totalNet) }}</strong></td>
+                    <td class="c-blue"><strong>Rs.{{ fmt(row.totalDeductionReturned) }}</strong></td>
+                    <td class="c-red"><strong>Rs.{{ fmt(row.currentMonthPending) }}</strong></td>
+                    <td>—</td>
                   </tr>
                 </tfoot>
               </table>
@@ -201,11 +183,12 @@
 
           <div class="detail-section">
             <div class="detail-section-title">
-              Payments and Deduction Returns
+              <v-icon icon="mdi-cash-multiple" size="14" class="mr-1" />
+              Payments & Deduction Returns
               <v-progress-circular v-if="loadingHistory[row.rowKey]" size="14" width="2" indeterminate class="ml-2" />
             </div>
             <div v-if="!loadingHistory[row.rowKey]">
-              <div v-if="!paymentHistories[row.rowKey]?.length" class="text-caption text-grey pa-2">
+              <div v-if="!paymentHistories[row.rowKey]?.length" class="text-caption text-medium-emphasis pa-2">
                 No payment activity recorded yet.
               </div>
               <table v-else class="payments-table">
@@ -234,12 +217,15 @@
           </div>
         </div>
       </div>
-    </v-card>
+    </div><!-- end history-card -->
 
     <v-dialog v-model="payDialog" max-width="460">
-      <v-card>
-        <v-card-title class="bg-primary text-white">Payment - {{ payEmp?.name }}</v-card-title>
-        <v-card-text class="pt-4">
+      <v-card rounded="xl">
+        <div class="hist-dialog-header">
+          <v-icon icon="mdi-cash-plus" size="20" class="mr-2" />
+          Payment — {{ payEmp?.name }}
+        </div>
+        <v-card-text class="pt-5 px-5">
           <v-row dense class="mb-2 text-body-2">
             <v-col>Carry Forward Pending</v-col>
             <v-col class="text-right font-weight-bold text-red">Rs.{{ fmt(payEmp?.carryForwardPending) }}</v-col>
@@ -291,10 +277,10 @@
           />
           <v-text-field v-model="payForm.notes" label="Notes (optional)" variant="outlined" />
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="px-5 pb-5">
           <v-spacer />
-          <v-btn text="Cancel" @click="payDialog = false" />
-          <v-btn color="primary" text="Confirm" :loading="store.loading" @click="submitPayment" />
+          <v-btn text="Cancel" rounded="lg" variant="text" @click="payDialog = false" />
+          <v-btn color="primary" text="Confirm" rounded="lg" elevation="0" :loading="store.loading" @click="submitPayment" />
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -305,6 +291,17 @@
 import { ref, computed, onMounted, onBeforeUnmount, reactive } from 'vue'
 import { usePayrollStore } from '@/stores/payroll'
 import { downloadPayslip, payslipBlob } from '@/utils/payslipPdf'
+
+function nameColor(str) {
+  const palette = ['#1565C0','#2E7D32','#6A1B9A','#C62828','#F57C00','#00838F','#AD1457','#37474F','#4527A0','#558B2F']
+  let h = 0
+  for (let i = 0; i < (str || '').length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0 }
+  return palette[Math.abs(h) % palette.length]
+}
+function nameInitials(name) {
+  const w = String(name || '').trim().split(/\s+/)
+  return w.length >= 2 ? (w[0][0] + w[1][0]).toUpperCase() : String(name || '?').slice(0, 2).toUpperCase()
+}
 
 const store = usePayrollStore()
 
@@ -585,95 +582,153 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* ══ Root ════════════════════════════════════════════════════════════ */
+.history-root { padding: 4px 0; }
+
+/* ══ Filter Bar ══════════════════════════════════════════════════════ */
+.filter-bar {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 18px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.07);
+  border: 1px solid #e8eaf0;
+}
+
+.summary-chip {
+  padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  display: inline-block;
+}
+.summary-chip--blue  { background: #e3f0ff; color: #1565c0; }
+.summary-chip--green { background: #e8f5e9; color: #2e7d32; }
+.summary-chip--red   { background: #fce4ec; color: #b71c1c; }
+
+/* ══ Empty State ═════════════════════════════════════════════════════ */
+.empty-state { text-align: center; padding: 48px 20px; }
+.empty-icon-wrap {
+  width: 70px; height: 70px; border-radius: 50%; background: #e8f0fe;
+  display: flex; align-items: center; justify-content: center; margin: 0 auto;
+}
+
+/* ══ History Card ════════════════════════════════════════════════════ */
+.history-card {
+  background: #fff; border-radius: 16px;
+  border: 1px solid #e8eaf0;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  overflow: hidden;
+}
+.history-card__title {
+  display: flex; align-items: center;
+  padding: 14px 18px; font-size: 14px; font-weight: 700;
+  color: #1a1a2e; background: #f7f9fc;
+}
+
+/* ══ Employee Group ══════════════════════════════════════════════════ */
 .emp-group { border-bottom: 1px solid #f0f0f0; }
 .emp-group:last-child { border-bottom: none; }
 
 .emp-summary-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 14px 16px;
-  transition: background 0.15s;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+  padding: 14px 18px; cursor: pointer; transition: background .15s;
 }
+.emp-summary-row:hover { background: #f7f9fc; }
 
-.emp-summary-row:hover { background: #fafafa; }
+.emp-summary-left { display: flex; align-items: center; min-width: 170px; flex: 1; }
+.emp-name { font-size: 14px; font-weight: 700; color: #1a1a2e; }
+.emp-meta { font-size: 11px; color: #888; margin-top: 1px; }
+.emp-summary-stats { display: flex; gap: 14px; flex-wrap: wrap; flex: 2; }
+.emp-stat { text-align: center; min-width: 72px; }
+.emp-stat-label { font-size: 10px; text-transform: uppercase; color: #9e9e9e; letter-spacing: .4px; margin-bottom: 2px; }
+.emp-stat-val { font-size: 13px; font-weight: 600; color: #333; }
+.emp-stat-val--red   { color: #c62828; }
+.emp-stat-val--green { color: #2e7d32; }
+.emp-stat-val--blue  { color: #1565c0; }
+.emp-summary-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
-.emp-summary-left { display: flex; align-items: center; min-width: 160px; flex: 1; }
-.emp-summary-stats { display: flex; gap: 16px; flex-wrap: wrap; flex: 2; }
-.emp-stat { text-align: center; min-width: 78px; }
-.emp-stat-label { font-size: 10px; text-transform: uppercase; color: #888; letter-spacing: 0.4px; }
-.emp-stat-val { font-size: 14px; font-weight: 600; color: #333; }
-.emp-summary-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.hist-status-badge {
+  padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+  text-transform: capitalize; letter-spacing: .2px;
+}
+.hist-status--paid    { background: #e8f5e9; color: #1b5e20; }
+.hist-status--partial { background: #fff3e0; color: #e65100; }
+.hist-status--pending { background: #fce4ec; color: #b71c1c; }
 
+/* ══ Expanded Detail ═════════════════════════════════════════════════ */
 .emp-detail {
-  background: #f8f9fb;
-  border-top: 1px solid #eee;
-  padding: 16px;
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
+  background: #f7f9fc; border-top: 1px solid #eee;
+  padding: 16px 18px; display: flex; gap: 20px; flex-wrap: wrap;
 }
-
-.detail-section { flex: 1; min-width: 320px; }
+.detail-section { flex: 1; min-width: 300px; }
 .detail-section-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: #666;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
+  font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .6px; color: #1565c0; margin-bottom: 8px;
+  display: flex; align-items: center;
 }
-.detail-meta { font-size: 12px; color: #666; margin-bottom: 10px; }
+.detail-meta { font-size: 12px; color: #666; margin-bottom: 8px; }
 .runs-table-wrap { overflow-x: auto; }
 
+/* ══ Tables ══════════════════════════════════════════════════════════ */
 .runs-table, .payments-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12.5px;
+  width: 100%; border-collapse: collapse; font-size: 12px;
 }
-
 .runs-table th, .payments-table th {
-  background: #ececec;
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  color: #555;
-  padding: 5px 8px;
-  text-align: left;
-  white-space: nowrap;
+  background: #eef2f7; font-size: 10px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .3px; color: #3c3c8a;
+  padding: 6px 8px; text-align: left; white-space: nowrap;
 }
-
 .runs-table td, .payments-table td {
-  padding: 6px 8px;
-  border-bottom: 1px solid #eee;
-  color: #333;
-  white-space: nowrap;
+  padding: 7px 8px; border-bottom: 1px solid #eee; color: #333; white-space: nowrap;
 }
-
+.runs-table tbody tr:hover td { background: #f0f4ff; }
 .runs-total td {
-  background: #e8e8e8;
-  font-size: 12.5px;
-  padding: 5px 8px;
-  border-top: 1px solid #ccc;
+  background: #e8eaf6; font-size: 12px; padding: 6px 8px;
+  border-top: 2px solid #9fa8da;
 }
-
 .date-col { color: #555; }
+.c-red  { color: #c62828; }
+.c-green { color: #2e7d32; }
+.c-blue  { color: #1565c0; }
 
+/* ══ Run Badge ═══════════════════════════════════════════════════════ */
 .run-badge {
-  display: inline-block;
-  padding: 2px 7px;
-  border-radius: 10px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  display: inline-block; padding: 2px 8px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
 }
-.run-badge--paid { background: #e6f4ea; color: #2e7d32; }
-.run-badge--partial { background: #e3f2fd; color: #1565c0; }
-.run-badge--pending { background: #fff3e0; color: #e65100; }
+.run-badge--paid    { background: #e6f4ea; color: #2e7d32; }
+.run-badge--partial { background: #fff8e1; color: #e65100; }
+.run-badge--pending { background: #fce4ec; color: #b71c1c; }
+
+/* ══ Dialog ══════════════════════════════════════════════════════════ */
+.hist-dialog-header {
+  display: flex; align-items: center;
+  padding: 16px 20px; font-size: 15px; font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg,#2e7d32,#43a047);
+}
+
 .gap-2 { gap: 8px; }
+
+/* ══ Responsive ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .filter-bar { padding: 12px; }
+  .filter-bar .d-flex { flex-direction: column; align-items: stretch; gap: 10px; }
+  .filter-bar .d-flex .d-flex { flex-direction: row; }
+  .summary-chip { font-size: 11px; padding: 3px 8px; }
+  .emp-summary-row { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 14px; }
+  .emp-summary-stats { gap: 8px; width: 100%; }
+  .emp-stat { min-width: 60px; }
+  .emp-stat-val { font-size: 12px; }
+  .emp-summary-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+  .emp-detail { flex-direction: column; gap: 14px; padding: 12px; }
+  .detail-section { min-width: unset; width: 100%; }
+  .runs-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .history-card__title { padding: 12px 14px; font-size: 13px; }
+  .hist-dialog-header { padding: 14px 16px; font-size: 14px; }
+}
+
+@media (max-width: 480px) {
+  .emp-summary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .emp-stat { min-width: unset; text-align: left; }
+  .emp-summary-actions { gap: 4px; }
+  .summary-chip { font-size: 10px; padding: 2px 6px; }
+}
 </style>

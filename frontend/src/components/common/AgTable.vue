@@ -15,6 +15,7 @@
               v-for="(col, index) in effectiveColumnDefs"
               :key="col.field || col.headerName || index"
               :class="{ sortable: col.sortable !== false }"
+              :style="getHeaderStyle(col, index)"
               @click="toggleSort(col, index)"
             >
               <div class="at-grid-th-content">
@@ -32,23 +33,39 @@
             </th>
           </tr>
         </thead>
-        <tbody v-if="pagedRows.length">
-          <tr v-for="(row, rowIndex) in pagedRows" :key="row._id || rowIndex">
+        <tbody v-if="pagedRows.length || footerRows.length">
+          <tr v-for="(row, rowIndex) in pagedRows" :key="row._id || rowIndex" :data-row-id="row._id || ''" :class="{ 'at-grid-highlight-row': highlightRowId && row._id === highlightRowId }">
             <td
               v-for="(col, colIndex) in effectiveColumnDefs"
               :key="(col.field || col.headerName || colIndex) + '-' + rowIndex"
               :class="getCellClass(col)"
-              :style="getCellStyle(col, row)"
+              :style="getCellStyle(col, row, colIndex)"
               @click="handleCellClick(col, row, $event)"
             >
               <div
-                v-if="hasHtmlRenderer(col)"
+                v-if="hasHtmlRenderer(col) && !isFooterRow(row)"
                 v-html="getRenderedHtml(col, row)"
               />
               <span v-else>{{ getDisplayValue(col, row) }}</span>
             </td>
           </tr>
+
+          <tr
+            v-for="(row, rowIndex) in footerRows"
+            :key="row._id || `footer-${rowIndex}`"
+            class="at-grid-footer-row"
+          >
+            <td
+              v-for="(col, colIndex) in effectiveColumnDefs"
+              :key="(col.field || col.headerName || colIndex) + '-footer-' + rowIndex"
+              :class="getCellClass(col)"
+              :style="getCellStyle(col, row, colIndex)"
+            >
+              <span>{{ getDisplayValue(col, row) }}</span>
+            </td>
+          </tr>
         </tbody>
+
       </table>
 
       <div v-if="!pagedRows.length" class="at-grid-empty">
@@ -80,13 +97,15 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 
 const props = defineProps({
-  rowData:     { type: Array,  default: () => [] },
-  columnDefs:  { type: Array,  default: () => [] },
-  height:      { type: String, default: '450px' },
-  pagination:  { type: Boolean, default: true },
-  pageSize:    { type: Number,  default: 15 },
-  quickFilter: { type: String,  default: '' },
-  noRowsText:  { type: String,  default: 'No data available' },
+  rowData:        { type: Array,  default: () => [] },
+  columnDefs:     { type: Array,  default: () => [] },
+  footerRows:     { type: Array,  default: () => [] },
+  height:         { type: String, default: '450px' },
+  pagination:     { type: Boolean, default: true },
+  pageSize:       { type: Number,  default: 15 },
+  quickFilter:    { type: String,  default: '' },
+  noRowsText:     { type: String,  default: 'No data available' },
+  highlightRowId: { type: String,  default: '' },
 })
 
 const currentPage = ref(1)
@@ -184,6 +203,10 @@ function hasHtmlRenderer(col) {
   return typeof col.cellRenderer === 'function'
 }
 
+function isFooterRow(row) {
+  return !!row?.__isFooter
+}
+
 function getRenderedHtml(col, row) {
   return col.cellRenderer({ value: getRawValue(col, row), data: row })
 }
@@ -194,9 +217,53 @@ function handleCellClick(col, row, event) {
   }
 }
 
-function getCellStyle(col, row) {
-  if (typeof col.cellStyle === 'function') return col.cellStyle({ value: getRawValue(col, row), data: row })
-  return col.cellStyle || null
+function isPinnedLeft(col) {
+  return String(col?.pinned || '').toLowerCase() === 'left'
+}
+
+function getComputedColumnWidthPx(col, index) {
+  const key = getColumnKey(col, index)
+  const actionCol = isActionColumn(col)
+  const explicitWidth = Number(columnWidths.value[key] || col.width || 0)
+  const minWidth = Math.max(Number(col.minWidth || 96), actionCol ? 190 : 96)
+  if (explicitWidth > 0) return Math.max(explicitWidth, minWidth)
+  return Math.max(Number(col.flex || 1), 0.9) * 120
+}
+
+function getPinnedLeftOffset(index) {
+  let left = 0
+  for (let i = 0; i < index; i += 1) {
+    const prev = effectiveColumnDefs.value[i]
+    if (!isPinnedLeft(prev)) continue
+    left += getComputedColumnWidthPx(prev, i)
+  }
+  return left
+}
+
+function getPinnedStyle(col, index, isHeader = false) {
+  if (!isPinnedLeft(col)) return {}
+  const style = {
+    position: 'sticky',
+    left: `${getPinnedLeftOffset(index)}px`,
+    zIndex: isHeader ? 8 : 4,
+    background: isHeader ? '#F8FAFD' : '#fff',
+  }
+  if (!isHeader) {
+    style.boxShadow = '1px 0 0 #E8EEF6'
+  }
+  return style
+}
+
+function getHeaderStyle(col, index) {
+  return getPinnedStyle(col, index, true)
+}
+
+function getCellStyle(col, row, index) {
+  const base = typeof col.cellStyle === 'function'
+    ? (col.cellStyle({ value: getRawValue(col, row), data: row }) || {})
+    : (col.cellStyle || {})
+  const pinned = getPinnedStyle(col, index, false)
+  return { ...base, ...pinned }
 }
 
 function getCellClass(col) {
@@ -204,6 +271,7 @@ function getCellClass(col) {
   return {
     'at-grid-cell-html': hasHtmlRenderer(col),
     'at-grid-cell-actions': hasHtmlRenderer(col) && (header === 'actions' || header === 'action'),
+    'at-grid-cell-pinned': isPinnedLeft(col),
   }
 }
 
@@ -215,14 +283,9 @@ function isActionColumn(col) {
 function getColumnWidthStyle(col) {
   const key = getColumnKey(col)
   const actionCol = isActionColumn(col)
-  const explicitWidth = Number(columnWidths.value[key] || col.width || 0)
   const minWidth = Math.max(Number(col.minWidth || 96), actionCol ? 190 : 96)
-  if (explicitWidth > 0) {
-    return { width: `${Math.max(explicitWidth, minWidth)}px`, minWidth: `${minWidth}px` }
-  }
-
-  const width = Number(col.flex || 1)
-  return { width: `${Math.max(width, 0.9) * 120}px`, minWidth: `${minWidth}px` }
+  const widthPx = getComputedColumnWidthPx(col, effectiveColumnDefs.value.findIndex(c => c === col))
+  return { width: `${widthPx}px`, minWidth: `${minWidth}px` }
 }
 
 function startResize(col, index, event) {
@@ -294,6 +357,7 @@ function compareValues(a, b, direction) {
 .at-grid-body {
   flex: 1;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .at-grid-table {
@@ -348,7 +412,35 @@ function compareValues(a, b, direction) {
   background: #edf5ff;
 }
 
-.at-grid-table tbody td.at-grid-cell-html,
+.at-grid-footer-row td {
+  padding: 10px 14px;
+  border-top: 1px solid #e0e7ef;
+  color: #1a2744;
+  font-size: 12px;
+  font-weight: 700;
+  background: #f9fbff;
+  vertical-align: middle;
+  word-break: break-word;
+}
+
+.at-grid-footer-row td:first-child {
+  color: #5a6a85;
+}
+
+.at-grid-highlight-row td {
+  animation: at-row-highlight 3s ease-out;
+}
+
+@keyframes at-row-highlight {
+  0%, 20% { background: #DBEAFE; }
+  100% { background: transparent; }
+}
+
+.at-grid-table tbody td.at-grid-cell-html {
+  white-space: normal;
+  word-break: break-word;
+}
+
 .at-grid-table tbody td.at-grid-cell-actions {
   white-space: nowrap;
   word-break: normal;
@@ -519,9 +611,15 @@ function compareValues(a, b, direction) {
 }
 
 @media (max-width: 768px) {
+  .at-grid-shell {
+    border-radius: 8px;
+  }
+
   .at-grid-footer {
     align-items: flex-start;
     justify-content: flex-start;
+    padding: 8px 10px;
+    gap: 8px;
   }
 
   .at-grid-footer-center {
@@ -529,9 +627,41 @@ function compareValues(a, b, direction) {
     order: 3;
   }
 
+  .at-grid-footer-left,
+  .at-grid-footer-right {
+    flex-wrap: wrap;
+  }
+
   .at-grid-table thead th,
   .at-grid-table tbody td {
-    padding: 10px 12px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .at-grid-table thead th {
+    font-size: 10px;
+    letter-spacing: 0.5px;
+  }
+
+  .at-grid-table {
+    min-width: 600px;
+  }
+
+  .at-grid-footer-row td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .at-grid-table thead th,
+  .at-grid-table tbody td {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .at-grid-footer {
+    font-size: 11px;
   }
 }
 </style>

@@ -1,30 +1,39 @@
 <template>
-  <div class="page-container">
-    <PageHeader :title="t('companyStatement')" sub="Company-wise date range statement">
-      <div class="d-flex align-center" style="gap:8px">
-        <v-btn color="secondary" variant="tonal" rounded="lg" prepend-icon="mdi-view-grid-plus-outline" :loading="createAllLoading" @click="createAllScenarios">Create All</v-btn>
-        <v-btn color="primary" variant="tonal" rounded="lg" prepend-icon="mdi-play-circle-outline" :loading="generateAllLoading" :disabled="!scenarios.length" @click="generateAllScenarios">Execute All</v-btn>
-        <v-btn color="error" variant="tonal" rounded="lg" prepend-icon="mdi-trash-can-outline" @click="clearAllScenarios">Delete All</v-btn>
-        <v-btn color="success" variant="flat" rounded="lg" prepend-icon="mdi-plus-circle-outline" @click="addScenario">Add Scenario</v-btn>
+  <div class="cs-page">
+    <!-- Header -->
+    <div class="cs-header">
+      <div>
+        <h1 class="cs-title">Company Statement</h1>
+        <p class="cs-subtitle">Company-wise date range statement</p>
       </div>
-    </PageHeader>
+      <div class="cs-header-actions">
+        <v-btn color="secondary" variant="tonal" size="small" prepend-icon="mdi-view-grid-plus-outline" :loading="createAllLoading" @click="createAllScenarios">Create All</v-btn>
+        <v-btn color="primary" variant="tonal" size="small" prepend-icon="mdi-play-circle-outline" :loading="generateAllLoading" :disabled="!scenarios.length" @click="generateAllScenarios">Execute All</v-btn>
+        <v-btn color="error" variant="tonal" size="small" prepend-icon="mdi-trash-can-outline" @click="clearAllScenarios">Delete All</v-btn>
+        <v-btn color="primary" variant="flat" size="small" prepend-icon="mdi-plus-circle-outline" @click="addScenario">Add Scenario</v-btn>
+      </div>
+    </div>
 
-    <v-card v-for="(scenario, idx) in scenarios" :key="scenario.id" rounded="lg" class="at-card pa-4 mb-4">
+    <!-- Scenarios -->
+    <div v-for="(scenario, idx) in scenarios" :key="scenario.id" class="scenario-card">
       <!-- Scenario Header -->
-      <div class="d-flex align-center justify-space-between mb-3">
-        <div>
-          <div class="font-weight-bold" style="font-size:14px">Scenario {{ idx + 1 }}</div>
-          <div style="font-size:12px;color:#5A6A85">Select company and date range to load order statement.</div>
+      <div class="scenario-header">
+        <div class="scenario-header-left">
+          <div class="scenario-number">{{ idx + 1 }}</div>
+          <div>
+            <div class="scenario-title">Scenario {{ idx + 1 }}</div>
+            <div class="scenario-hint">Select company and date range to load order statement.</div>
+          </div>
         </div>
-        <div class="d-flex align-center" style="gap:8px">
+        <div class="scenario-header-right">
           <v-btn variant="tonal" color="warning" size="small" prepend-icon="mdi-broom" @click="clearScenario(scenario)">Clear</v-btn>
           <v-btn v-if="scenarios.length > 1" icon="mdi-close" variant="text" color="error" size="small" @click="removeScenario(scenario.id)" />
         </div>
       </div>
 
       <!-- Company selector -->
-      <v-row dense class="mb-3">
-        <v-col cols="12" md="5">
+      <div class="scenario-body">
+        <div class="company-select-wrap">
           <v-autocomplete
             v-model="scenario.companyId"
             :items="companyOptionsForScenario(scenario.id)"
@@ -36,180 +45,185 @@
             clearable
             hide-details="auto"
           />
-        </v-col>
-      </v-row>
-
-      <!-- Main Period row — same style as comparisons -->
-      <div class="period-row main-period-row mb-2">
-        <div class="period-label">
-          <v-icon size="14" color="#1565C0" class="mr-1">mdi-calendar-range</v-icon>
-          Main Period
         </div>
-        <v-text-field
-          v-model="scenario.from"
-          :label="t('from')"
-          type="date"
-          density="compact"
-          hide-details="auto"
-          class="period-date-field"
-        />
-        <v-text-field
-          v-model="scenario.to"
-          :label="t('to')"
-          type="date"
-          density="compact"
-          hide-details="auto"
-          :min="scenario.from || undefined"
-          class="period-date-field"
-        />
-        <v-btn
-          color="primary"
-          variant="flat"
-          prepend-icon="mdi-file-chart-outline"
-          :loading="scenario.loading"
-          :disabled="!scenario.companyId || !scenario.from || !scenario.to"
-          @click="loadScenario(scenario)"
-          class="period-action-btn"
-        >
-          {{ t('generate') }}
-        </v-btn>
-      </div>
 
-      <div v-if="scenario.error" class="mb-2" style="color:#C62828;font-size:12px">{{ scenario.error }}</div>
-
-      <!-- Comparisons (draggable) -->
-      <div
-        v-for="(comp, compIdx) in scenario.comparisons"
-        :key="comp.id"
-        class="period-row comparison-period-row mt-3"
-        :class="{ 'drag-over': dragOverState.scenarioId === scenario.id && dragOverState.compId === comp.id }"
-        draggable="true"
-        @dragstart="onDragStart(scenario, comp)"
-        @dragover.prevent="onDragOver(scenario, comp)"
-        @drop.prevent="onDrop(scenario, comp)"
-        @dragend="onDragEnd"
-      >
-        <!-- Controls row -->
-        <div class="period-label comparison-label">
-          <v-icon size="14" class="drag-handle mr-1" color="#90A4AE">mdi-drag-vertical</v-icon>
-          <v-icon size="14" color="#1976D2" class="mr-1">mdi-compare-horizontal</v-icon>
-          Comparison #{{ compIdx + 1 }}
-        </div>
-        <v-text-field
-          v-model="comp.from"
-          label="Compare From"
-          type="date"
-          density="compact"
-          hide-details="auto"
-          class="period-date-field"
-        />
-        <v-text-field
-          v-model="comp.to"
-          label="Compare To"
-          type="date"
-          density="compact"
-          hide-details="auto"
-          :min="comp.from || undefined"
-          class="period-date-field"
-        />
-        <div class="d-flex align-center period-action-btn" style="gap:4px">
-          <v-btn
-            color="info"
-            variant="flat"
-            size="small"
-            prepend-icon="mdi-chart-timeline-variant"
-            :loading="comp.loading"
-            :disabled="!scenario.companyId || !comp.from || !comp.to"
-            @click="loadComparison(scenario, comp)"
-            class="flex-grow-1"
-          >
-            Load
-          </v-btn>
-          <v-btn
-            variant="text"
-            color="error"
-            icon="mdi-close"
-            size="small"
-            @click="removeComparison(scenario, comp.id)"
+        <!-- Main Period -->
+        <div class="period-row main-period-row">
+          <div class="period-label">
+            <v-icon size="14" color="#1565C0" class="mr-1">mdi-calendar-range</v-icon>
+            Main Period
+          </div>
+          <v-text-field
+            v-model="scenario.from"
+            :label="t('from')"
+            type="date"
+            density="compact"
+            hide-details="auto"
+            class="period-date-field"
           />
+          <v-text-field
+            v-model="scenario.to"
+            :label="t('to')"
+            type="date"
+            density="compact"
+            hide-details="auto"
+            :min="scenario.from || undefined"
+            class="period-date-field"
+          />
+          <v-btn
+            color="primary"
+            variant="flat"
+            prepend-icon="mdi-file-chart-outline"
+            :loading="scenario.loading"
+            :disabled="!scenario.companyId || !scenario.from || !scenario.to"
+            @click="loadScenario(scenario)"
+            class="period-action-btn"
+          >
+            {{ t('generate') }}
+          </v-btn>
         </div>
 
-        <!-- Comparison table removed — rendered in sorted section below -->
-        <div v-if="comp.error" class="period-full-row mt-2" style="color:#C62828;font-size:12px">{{ comp.error }}</div>
-      </div>
+        <div v-if="scenario.error" class="error-msg">{{ scenario.error }}</div>
 
-      <!-- Add Comparison button -->
-      <div class="d-flex justify-end mt-3">
-        <v-btn color="info" variant="tonal" size="small" prepend-icon="mdi-plus" @click="addComparison(scenario)">
-          {{ scenario.comparisons.length ? 'Add Another Comparison' : 'Add Comparison' }}
-        </v-btn>
-      </div>
-
-      <!-- All loaded tables sorted by from-date (earliest first) -->
-      <template v-for="entry in sortedEntries(scenario)" :key="entry.key">
-        <div v-if="entry.loaded" class="mt-4 mb-2">
-          <div class="d-flex align-center justify-space-between mb-2">
-            <div style="font-size:13px;font-weight:700;color:#1A2744">
-              {{ scenario.companyName || '-' }}
-              <span v-if="entry.type === 'comparison'" style="font-weight:500;color:#1976D2"> — {{ entry.label }}</span>
-            </div>
-            <div style="font-size:12px;color:#5A6A85">{{ formatDateRangeWithDay(entry.from, entry.to) }}</div>
+        <!-- Comparisons -->
+        <div
+          v-for="(comp, compIdx) in scenario.comparisons"
+          :key="comp.id"
+          class="period-row comparison-period-row"
+          :class="{ 'drag-over': dragOverState.scenarioId === scenario.id && dragOverState.compId === comp.id }"
+          draggable="true"
+          @dragstart="onDragStart(scenario, comp)"
+          @dragover.prevent="onDragOver(scenario, comp)"
+          @drop.prevent="onDrop(scenario, comp)"
+          @dragend="onDragEnd"
+        >
+          <div class="period-label comparison-label">
+            <v-icon size="14" class="drag-handle mr-1" color="#90A4AE">mdi-drag-vertical</v-icon>
+            <v-icon size="14" color="#1976D2" class="mr-1">mdi-compare-horizontal</v-icon>
+            Comparison #{{ compIdx + 1 }}
           </div>
-          <div class="statement-summary-row mb-2">
-            <div class="statement-summary-pill">Total Production: <strong>{{ fmtN(scenarioTotals(entry).totalProduced) }}</strong></div>
-            <div class="statement-summary-pill" :class="(entry.previousBalance || 0) > 0 ? 'pill-credit' : (entry.previousBalance || 0) < 0 ? 'pill-debit' : ''">
-              {{ (entry.previousBalance || 0) >= 0 ? 'Carry Forward' : 'Received Amount' }}:
-              <strong>{{ fmtSigned(entry.previousBalance || 0) }}</strong>
-            </div>
-            <div class="statement-summary-pill">Payable Balance: <strong>{{ fmt(scenarioTotals(entry).payableBalance) }}</strong></div>
-            <div class="statement-summary-pill">Total Amount: <strong>{{ fmtSigned(scenarioTotals(entry).totalAmount) }}</strong></div>
+          <v-text-field
+            v-model="comp.from"
+            label="Compare From"
+            type="date"
+            density="compact"
+            hide-details="auto"
+            class="period-date-field"
+          />
+          <v-text-field
+            v-model="comp.to"
+            label="Compare To"
+            type="date"
+            density="compact"
+            hide-details="auto"
+            :min="comp.from || undefined"
+            class="period-date-field"
+          />
+          <div class="d-flex align-center period-action-btn" style="gap:4px">
+            <v-btn
+              color="info"
+              variant="flat"
+              size="small"
+              prepend-icon="mdi-chart-timeline-variant"
+              :loading="comp.loading"
+              :disabled="!scenario.companyId || !comp.from || !comp.to"
+              @click="loadComparison(scenario, comp)"
+              class="flex-grow-1"
+            >
+              Load
+            </v-btn>
+            <v-btn
+              variant="text"
+              color="error"
+              icon="mdi-close"
+              size="small"
+              @click="removeComparison(scenario, comp.id)"
+            />
           </div>
-          <div class="statement-table-wrap">
-            <table class="statement-table">
-              <thead>
-                <tr>
-                  <th>Order</th><th>Order State</th><th>Expected Quantity</th><th>Produced</th>
-                  <th>Rate/m</th><th>Total Amount</th><th>Deduction %</th><th>Deduction Amt</th><th>Payable Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, rIdx) in entry.rows" :key="`${entry.key}-${rIdx}`">
-                  <td>{{ row.order }}</td>
-                  <td><span :class="row.orderState === 'completed' ? 'chip-paid' : 'chip-pending'" style="padding:2px 10px;border-radius:20px;font-size:11px">{{ row.orderState === 'completed' ? t('completed') : t('active') }}</span></td>
-                  <td>{{ fmtN(row.expectedQuantity) }}</td>
-                  <td>{{ fmtN(row.produced) }}</td>
-                  <td>{{ fmt(row.ratePerMeter) }}</td>
-                  <td>{{ fmt(row.totalAmount) }}</td>
-                  <td>{{ Number(row.deductionPct || 0).toFixed(2) }}%</td>
-                  <td>{{ fmt(row.deductionAmt) }}</td>
-                  <td>{{ fmt(row.payableAmount) }}</td>
-                </tr>
-                <tr v-if="entry.rows.length" class="statement-total-row">
-                  <td colspan="3">Total</td>
-                  <td>{{ fmtN(scenarioTotals(entry).totalProduced) }}</td>
-                  <td>-</td>
-                  <td>{{ fmt(scenarioTotals(entry).grossAmount) }}</td>
-                  <td>-</td>
-                  <td>{{ fmt(scenarioTotals(entry).totalDeduction) }}</td>
-                  <td>{{ fmt(scenarioTotals(entry).payableBalance) }}</td>
-                </tr>
-                <tr v-if="!entry.rows.length">
-                  <td colspan="9" class="text-center" style="color:#5A6A85">{{ t('noData') }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="statement-end-line" />
+          <div v-if="comp.error" class="period-full-row mt-2 error-msg">{{ comp.error }}</div>
         </div>
-      </template>
-    </v-card>
+
+        <!-- Add Comparison -->
+        <div class="d-flex justify-end mt-3">
+          <v-btn color="info" variant="tonal" size="small" prepend-icon="mdi-plus" @click="addComparison(scenario)">
+            {{ scenario.comparisons.length ? 'Add Another Comparison' : 'Add Comparison' }}
+          </v-btn>
+        </div>
+
+        <!-- Results -->
+        <template v-for="entry in sortedEntries(scenario)" :key="entry.key">
+          <div v-if="entry.loaded" class="result-block">
+            <div class="result-header">
+              <div class="result-company">
+                {{ scenario.companyName || '-' }}
+                <span v-if="entry.type === 'comparison'" class="result-comparison-tag">{{ entry.label }}</span>
+              </div>
+              <div class="result-date">{{ formatDateRangeWithDay(entry.from, entry.to) }}</div>
+            </div>
+            <div class="statement-summary-row">
+              <div class="statement-summary-pill">
+                <v-icon size="14" class="mr-1" color="#1565C0">mdi-factory</v-icon>
+                Total Production: <strong>{{ fmtN(scenarioTotals(entry).totalProduced) }}</strong>
+              </div>
+              <div class="statement-summary-pill" :class="(entry.previousBalance || 0) > 0 ? 'pill-credit' : (entry.previousBalance || 0) < 0 ? 'pill-debit' : ''">
+                <v-icon size="14" class="mr-1">{{ (entry.previousBalance || 0) >= 0 ? 'mdi-arrow-right-bold' : 'mdi-cash-check' }}</v-icon>
+                {{ (entry.previousBalance || 0) >= 0 ? 'Carry Forward' : 'Received Amount' }}:
+                <strong>{{ fmtSigned(entry.previousBalance || 0) }}</strong>
+              </div>
+              <div class="statement-summary-pill">
+                <v-icon size="14" class="mr-1" color="#E65100">mdi-cash-clock</v-icon>
+                Payable Balance: <strong>{{ fmt(scenarioTotals(entry).payableBalance) }}</strong>
+              </div>
+              <div class="statement-summary-pill pill-total">
+                <v-icon size="14" class="mr-1" color="#7B1FA2">mdi-sigma</v-icon>
+                Total Amount: <strong>{{ fmtSigned(scenarioTotals(entry).totalAmount) }}</strong>
+              </div>
+            </div>
+            <div class="statement-table-wrap">
+              <table class="statement-table">
+                <thead>
+                  <tr>
+                    <th>Order</th><th>Order State</th><th>Expected Quantity</th><th>Produced</th>
+                    <th>Rate/m</th><th>Total Amount</th><th>Deduction %</th><th>Deduction Amt</th><th>Payable Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, rIdx) in entry.rows" :key="`${entry.key}-${rIdx}`">
+                    <td class="order-name-cell">{{ row.order }}</td>
+                    <td><span :class="row.orderState === 'completed' ? 'chip-paid' : 'chip-pending'" style="padding:2px 10px;border-radius:20px;font-size:11px">{{ row.orderState === 'completed' ? t('completed') : t('active') }}</span></td>
+                    <td>{{ fmtN(row.expectedQuantity) }}</td>
+                    <td>{{ fmtN(row.produced) }}</td>
+                    <td>{{ fmtRatePerMeter(row.ratePerMeter) }}</td>
+                    <td>{{ fmt(row.totalAmount) }}</td>
+                    <td>{{ Number(row.deductionPct || 0).toFixed(2) }}%</td>
+                    <td>{{ fmt(row.deductionAmt) }}</td>
+                    <td class="payable-cell">{{ fmt(row.payableAmount) }}</td>
+                  </tr>
+                  <tr v-if="entry.rows.length" class="statement-total-row">
+                    <td colspan="3"><strong>Total</strong></td>
+                    <td><strong>{{ fmtN(scenarioTotals(entry).totalProduced) }}</strong></td>
+                    <td>-</td>
+                    <td><strong>{{ fmt(scenarioTotals(entry).grossAmount) }}</strong></td>
+                    <td>-</td>
+                    <td><strong>{{ fmt(scenarioTotals(entry).totalDeduction) }}</strong></td>
+                    <td><strong>{{ fmt(scenarioTotals(entry).payableBalance) }}</strong></td>
+                  </tr>
+                  <tr v-if="!entry.rows.length">
+                    <td colspan="9" class="text-center" style="color:#94A3B8">{{ t('noData') }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import PageHeader from '@/components/common/PageHeader.vue'
 import { useCompanyStore } from '@/stores/index'
 import { useUtils } from '@/composables/useUtils'
 import api from '@/plugins/axios'
@@ -482,6 +496,12 @@ function fmtSigned(value) {
   return amount > 0 ? `+${fmt(amount)}` : amount < 0 ? `-${fmt(Math.abs(amount))}` : fmt(0)
 }
 
+function fmtRatePerMeter(value) {
+  const n = Number(value || 0)
+  if (!Number.isFinite(n)) return '₹0'
+  return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 20 })}`
+}
+
 function formatDateWithDay(value) {
   if (!value) return '-'
   const date = new Date(value)
@@ -554,125 +574,150 @@ watch(
 </script>
 
 <style scoped>
-.statement-table-wrap {
-  overflow-x: auto;
-  border: 1px solid #E0E7EF;
-  border-radius: 12px;
+.cs-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 20px;
 }
 
-.statement-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 1020px;
-  background: #fff;
-}
-
-.statement-table th,
-.statement-table td {
-  border-bottom: 1px solid #EEF2F7;
-  padding: 10px 12px;
-  text-align: left;
-  font-size: 12px;
-  color: #1A2744;
-}
-
-.statement-table th {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: #5A6A85;
-  background: #F8FAFD;
-}
-
-.statement-total-row td {
-  font-weight: 700;
-  background: #F8FAFD;
-}
-
-.statement-end-line {
-  height: 2px;
-  width: 100%;
-  margin-top: 12px;
-  background: linear-gradient(90deg, #1565C0, #90CAF9);
-  border-radius: 999px;
-}
-
-.statement-summary-row {
+/* Header */
+.cs-header {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
   flex-wrap: wrap;
+}
+
+.cs-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #1E293B;
+  letter-spacing: -0.5px;
+}
+
+.cs-subtitle {
+  font-size: 13px;
+  color: #64748B;
+  margin-top: 2px;
+}
+
+.cs-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Scenario Card */
+.scenario-card {
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  margin-bottom: 24px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.scenario-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+
+.scenario-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  background: #F8FAFC;
+  border-bottom: 1px solid #F1F5F9;
+  gap: 12px;
+}
+
+.scenario-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.scenario-number {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1565C0, #42A5F5);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.scenario-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.scenario-hint {
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+.scenario-header-right {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.statement-summary-pill {
-  background: #F8FAFD;
-  border: 1px solid #E0E7EF;
-  border-radius: 10px;
-  padding: 8px 10px;
+.scenario-body {
+  padding: 20px 24px;
+}
+
+.company-select-wrap {
+  max-width: 400px;
+  margin-bottom: 16px;
+}
+
+.error-msg {
+  color: #C62828;
   font-size: 12px;
-  color: #1A2744;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #FEF2F2;
+  border-radius: 6px;
+  border: 1px solid #FECACA;
 }
 
-.statement-summary-pill.pill-credit {
-  background: #F1F8E9;
-  border-color: #A5D6A7;
-  color: #2E7D32;
-}
-
-.statement-summary-pill.pill-debit {
-  background: #FFF3E0;
-  border-color: #FFCC80;
-  color: #E65100;
-}
-
-.comparison-section {
-  padding: 16px;
-  background: linear-gradient(135deg, #F5F7FA 0%, #F1F5FB 100%);
-  border-radius: 10px;
-  border-left: 4px solid #42A5F5;
-  animation: slideInLeft 0.3s ease-out;
-}
-
-.comparison-content {
-  background: white;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #E3F2FD;
-}
-
-/* Period row — shared layout for main and compare rows */
+/* Period Rows */
 .period-row {
   display: grid;
-  grid-template-columns: 160px 1fr 1fr auto;
+  grid-template-columns: 150px 1fr 1fr auto;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  margin-top: 12px;
 }
 
 .period-row.main-period-row {
-  background: linear-gradient(135deg, #E8F5E9 0%, #F1F8FF 100%);
-  border-left: 4px solid #1976D2;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-left: 4px solid #1565C0;
 }
 
 .period-row.comparison-period-row {
-  background: linear-gradient(135deg, #F5F7FA 0%, #F1F5FB 100%);
+  background: #FAFBFE;
+  border: 1px solid #E8ECF4;
   border-left: 4px solid #42A5F5;
-  flex-direction: column;
-  display: flex;
-  flex-wrap: wrap;
   cursor: grab;
-  animation: slideInLeft 0.3s ease-out;
+  transition: all 0.2s;
 }
 
-.period-row.comparison-period-row > * {
-  flex: none;
-}
-
-.period-row.comparison-period-row {
-  display: grid;
-  grid-template-columns: 160px 1fr 1fr auto;
-  cursor: grab;
+.period-row.comparison-period-row:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .period-row.comparison-period-row:active {
@@ -681,8 +726,8 @@ watch(
 
 .period-row.drag-over {
   border-left-color: #7B1FA2;
-  background: linear-gradient(135deg, #F3E5F5 0%, #EDE7F6 100%);
-  box-shadow: 0 0 0 2px #AB47BC44;
+  background: #FAF5FF;
+  box-shadow: 0 0 0 2px rgba(171,71,188,0.2);
 }
 
 .period-full-row {
@@ -694,7 +739,7 @@ watch(
   align-items: center;
   font-size: 12px;
   font-weight: 700;
-  color: #27476e;
+  color: #475569;
   white-space: nowrap;
 }
 
@@ -712,22 +757,256 @@ watch(
 
 .drag-handle {
   cursor: grab;
-  opacity: 0.6;
+  opacity: 0.5;
   transition: opacity 0.2s;
 }
 .drag-handle:hover {
   opacity: 1;
 }
 
-@keyframes slideInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-16px);
+/* Results */
+.result-block {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #F1F5F9;
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.result-company {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1E293B;
+}
+
+.result-comparison-tag {
+  font-weight: 500;
+  color: #1976D2;
+  font-size: 14px;
+}
+
+.result-date {
+  font-size: 12px;
+  color: #64748B;
+  font-weight: 600;
+  padding: 4px 10px;
+  background: #F1F5F9;
+  border-radius: 6px;
+}
+
+/* Summary Pills */
+.statement-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.statement-summary-pill {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #1E293B;
+  transition: all 0.15s;
+}
+
+.statement-summary-pill:hover {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  transform: translateY(-1px);
+}
+
+.statement-summary-pill strong {
+  margin-left: 4px;
+}
+
+.statement-summary-pill.pill-credit {
+  background: #F0FFF4;
+  border-color: #BBF7D0;
+  color: #166534;
+}
+
+.statement-summary-pill.pill-debit {
+  background: #FFFBEB;
+  border-color: #FDE68A;
+  color: #92400E;
+}
+
+.statement-summary-pill.pill-total {
+  background: #FAF5FF;
+  border-color: #E9D5FF;
+  color: #6B21A8;
+}
+
+/* Table */
+.statement-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+}
+
+.statement-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1020px;
+  background: #fff;
+}
+
+.statement-table th,
+.statement-table td {
+  border-bottom: 1px solid #F1F5F9;
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 13px;
+  color: #1E293B;
+}
+
+.statement-table th {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  color: #64748B;
+  background: #F8FAFC;
+  white-space: nowrap;
+}
+
+.statement-table tbody tr {
+  transition: background 0.15s;
+}
+
+.statement-table tbody tr:hover {
+  background: #F8FBFF;
+}
+
+.order-name-cell {
+  font-weight: 600;
+  color: #1E293B;
+}
+
+.payable-cell {
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.statement-total-row td {
+  background: #F8FAFC;
+  border-top: 2px solid #E2E8F0;
+  color: #1E293B;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .period-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
-  to {
-    opacity: 1;
-    transform: translateX(0);
+
+  .period-label {
+    grid-column: 1 / -1;
+  }
+
+  .period-action-btn {
+    grid-column: 1 / -1;
+    min-width: auto;
   }
 }
 
+@media (max-width: 768px) {
+  .cs-page { padding: 16px 12px; }
+
+  .cs-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .cs-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .cs-header-actions .v-btn {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+  }
+
+  .scenario-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 14px 16px;
+    gap: 10px;
+  }
+
+  .scenario-header-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .scenario-body {
+    padding: 16px;
+  }
+
+  .company-select-wrap {
+    max-width: none;
+  }
+
+  .period-row {
+    grid-template-columns: 1fr;
+  }
+
+  .statement-summary-row {
+    flex-direction: column;
+  }
+
+  .result-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .scenario-card {
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cs-page { padding: 10px 8px; }
+
+  .cs-title { font-size: 18px; }
+  .cs-subtitle { font-size: 12px; }
+
+  .cs-header-actions .v-btn {
+    flex: 1 1 100%;
+    font-size: 12px;
+  }
+
+  .scenario-card {
+    border-radius: 10px;
+  }
+
+  .scenario-number {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .scenario-title {
+    font-size: 14px;
+  }
+
+  .scenario-hint {
+    font-size: 11px;
+  }
+}
 </style>
