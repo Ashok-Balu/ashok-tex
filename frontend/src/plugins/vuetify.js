@@ -8,6 +8,9 @@ import 'vuetify/styles'
 export default createVuetify({
   components,
   directives,
+  date: {
+    locale: { en: 'en-IN' },
+  },
   icons: {
     defaultSet: 'mdi',
     aliases,

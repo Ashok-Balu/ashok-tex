@@ -10,12 +10,12 @@
     <!-- Global confirm dialog -->
     <v-dialog v-model="confirm.show.value" max-width="420" persistent>
       <v-card rounded="xl">
-        <v-card-title class="text-h6 font-weight-bold pt-5 px-6">{{ t('deleteConfirm') }}</v-card-title>
+        <v-card-title class="text-h6 font-weight-bold pt-5 px-6">{{ confirm.title.value || t('confirmAction') }}</v-card-title>
         <v-card-text class="px-6">{{ confirm.message.value }}</v-card-text>
         <v-card-actions class="px-6 pb-5">
           <v-spacer />
           <v-btn variant="text" @click="confirm.onCancel()">{{ t('cancel') }}</v-btn>
-          <v-btn color="error" variant="flat" rounded="lg" @click="confirm.onConfirm()">{{ t('delete') }}</v-btn>
+          <v-btn :color="confirm.confirmColor.value || 'primary'" variant="flat" rounded="lg" @click="confirm.onConfirm()">{{ confirm.confirmText.value || t('confirm') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

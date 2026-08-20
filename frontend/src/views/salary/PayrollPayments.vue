@@ -226,4 +226,14 @@ const recordPayment = async () => {
 .value.pending {
   color: #d32f2f;
 }
+
+/* ══ Responsive ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .value { font-size: 16px; }
+  .payments :deep(.v-card-text) { padding: 12px; }
+}
+
+@media (max-width: 480px) {
+  .value { font-size: 14px; }
+}
 </style>

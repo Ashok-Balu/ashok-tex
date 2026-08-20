@@ -160,9 +160,27 @@ const goToHistory = () => {
   gap: 12px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
+  .actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dashboard :deep(.v-data-table__wrapper) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .dashboard :deep(.v-card-title) {
+    font-size: 16px;
+    padding: 12px 16px;
+  }
+}
+
+@media (max-width: 480px) {
   .actions-grid {
     grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .dashboard :deep(.v-data-table) {
+    font-size: 12px;
   }
 }
 </style>

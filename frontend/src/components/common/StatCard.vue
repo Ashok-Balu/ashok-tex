@@ -58,4 +58,20 @@ defineProps({
 .stat-icon {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2), 0 6px 14px rgba(17, 24, 39, 0.14);
 }
+
+@media (max-width: 768px) {
+  .stat-card {
+    min-height: 100px;
+  }
+
+  .stat-card-top {
+    min-height: 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-card {
+    min-height: 88px;
+  }
+}
 </style>

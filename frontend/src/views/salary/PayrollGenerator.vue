@@ -1,6 +1,6 @@
 <template>
   <div class="generator">
-    <v-card class="mb-4" elevation="2">
+    <v-card class="mb-4" elevation="0" style="border:1px solid #e8eaf0;border-radius:14px;background:#fff">
       <v-card-text class="pb-2">
         <v-row dense>
           <v-col cols="6" md="2">
@@ -341,53 +341,56 @@ const generateSalary = async () => {
 <style scoped>
 .emp-card {
   cursor: pointer;
-  border: 2px solid transparent;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  border: 2px solid #e8eaf0;
+  border-radius: 14px !important;
+  transition: border-color .2s, box-shadow .2s, transform .18s;
+  background: #fff;
 }
+.emp-card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.1) !important; }
 
 .emp-card--selected {
   border-color: #1976d2;
-  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15) !important;
+  box-shadow: 0 0 0 3px rgba(25,118,210,.15) !important;
 }
 
 .emp-card__header {
-  display: flex;
-  align-items: center;
+  display: flex; align-items: center;
   justify-content: space-between;
-  padding: 12px 12px 8px;
+  padding: 14px 14px 10px;
 }
 
-.emp-card__fields {
-  padding: 0 12px 12px;
-}
+.emp-card__fields { padding: 0 14px 14px; }
 
 .emp-card__preview {
-  background: #f5f7fa;
-  border-radius: 8px;
-  padding: 10px 12px;
+  background: linear-gradient(135deg,#f0f4ff,#e8f0fe);
+  border-radius: 10px;
+  padding: 12px 14px;
+  border: 1px solid #d0d8f0;
 }
 
 .preview-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  margin-bottom: 4px;
+  display: flex; justify-content: space-between;
+  font-size: 13px; margin-bottom: 5px; color: #444;
 }
 
 .preview-net {
-  font-weight: 700;
-  font-size: 14px;
-  color: #2e7d32;
-  border-top: 1px solid #ddd;
-  padding-top: 6px;
-  margin-top: 4px;
+  font-weight: 700; font-size: 14px; color: #1b5e20;
+  border-top: 1px dashed #9fa8da;
+  padding-top: 7px; margin-top: 5px;
 }
 
-.gap-2 {
-  gap: 8px;
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+
+/* ══ Responsive ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .emp-card__header { padding: 12px; }
+  .emp-card__fields { padding: 0 12px 12px; }
+  .emp-card__preview { padding: 10px 12px; }
+  .d-flex.align-center.gap-3 { flex-wrap: wrap; }
 }
 
-.gap-3 {
-  gap: 12px;
+@media (max-width: 480px) {
+  .emp-card__header { flex-direction: column; align-items: flex-start; gap: 8px; }
 }
 </style>
