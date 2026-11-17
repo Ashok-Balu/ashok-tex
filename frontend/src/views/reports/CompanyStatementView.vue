@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <PageHeader :title="t('companyStatement')" sub="Company-wise date range statement">
-      <div class="d-flex align-center" style="gap:8px">
+      <div class="statement-actions">
         <v-btn color="secondary" variant="tonal" rounded="lg" prepend-icon="mdi-view-grid-plus-outline" :loading="createAllLoading" @click="createAllScenarios">Create All</v-btn>
         <v-btn color="primary" variant="tonal" rounded="lg" prepend-icon="mdi-play-circle-outline" :loading="generateAllLoading" :disabled="!scenarios.length" @click="generateAllScenarios">Execute All</v-btn>
         <v-btn color="error" variant="tonal" rounded="lg" prepend-icon="mdi-trash-can-outline" @click="clearAllScenarios">Delete All</v-btn>
@@ -11,7 +11,7 @@
 
     <v-card v-for="(scenario, idx) in scenarios" :key="scenario.id" rounded="lg" class="at-card pa-4 mb-4">
       <!-- Scenario Header -->
-      <div class="d-flex align-center justify-space-between mb-3">
+      <div class="d-flex align-center justify-space-between flex-wrap mb-3" style="gap:8px">
         <div>
           <div class="font-weight-bold" style="font-size:14px">Scenario {{ idx + 1 }}</div>
           <div style="font-size:12px;color:#5A6A85">Select company and date range to load order statement.</div>
@@ -148,7 +148,7 @@
       <!-- All loaded tables sorted by from-date (earliest first) -->
       <template v-for="entry in sortedEntries(scenario)" :key="entry.key">
         <div v-if="entry.loaded" class="mt-4 mb-2">
-          <div class="d-flex align-center justify-space-between mb-2">
+          <div class="d-flex align-center justify-space-between flex-wrap mb-2" style="gap:4px 12px">
             <div style="font-size:13px;font-weight:700;color:#1A2744">
               {{ scenario.companyName || '-' }}
               <span v-if="entry.type === 'comparison'" style="font-weight:500;color:#1976D2"> — {{ entry.label }}</span>
@@ -175,7 +175,7 @@
               <tbody>
                 <tr v-for="(row, rIdx) in entry.rows" :key="`${entry.key}-${rIdx}`">
                   <td>{{ row.order }}</td>
-                  <td><span :class="row.orderState === 'completed' ? 'chip-paid' : 'chip-pending'" style="padding:2px 10px;border-radius:20px;font-size:11px">{{ row.orderState === 'completed' ? t('completed') : t('active') }}</span></td>
+                  <td><span :class="isOrderDone(row.orderState) ? 'chip-paid' : 'chip-pending'" style="padding:2px 10px;border-radius:20px;font-size:11px">{{ isOrderDone(row.orderState) ? t('completed') : t('active') }}</span></td>
                   <td>{{ fmtN(row.expectedQuantity) }}</td>
                   <td>{{ fmtN(row.produced) }}</td>
                   <td>{{ fmt(row.ratePerMeter) }}</td>
@@ -212,12 +212,17 @@ import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useCompanyStore } from '@/stores/index'
 import { useUtils } from '@/composables/useUtils'
+import { useNotify } from '@/composables/useNotify'
+import { useConfirm } from '@/composables/useConfirm'
 import api from '@/plugins/axios'
 
 const { t } = useI18n()
 const { today, monthStart, fmt, fmtN } = useUtils()
+const notify = useNotify()
+const { confirm } = useConfirm()
 const companyStore = useCompanyStore()
 const STORAGE_KEY = 'at-company-statement-scenarios'
+const isOrderDone = state => ['completed', 'production_complete', 'closed'].includes(state)
 
 const scenarios = ref([])
 const generateAllLoading = ref(false)
@@ -347,8 +352,16 @@ function addScenario() {
   scenarios.value.push(createScenario())
 }
 
-function clearAllScenarios() {
+async function clearAllScenarios() {
+  const ok = await confirm({
+    title: 'Delete All Statements',
+    message: 'Remove all statement cards from this page? Your saved data is not affected.',
+    confirmText: 'Delete All',
+    confirmColor: 'error',
+  })
+  if (!ok) return
   scenarios.value = [createScenario()]
+  notify.success('All statements cleared')
 }
 
 async function createAllScenarios() {
@@ -367,7 +380,12 @@ async function createAllScenarios() {
 
     if (!scenarios.value.length) {
       addScenario()
+      notify.warning('No companies found to create statements')
+    } else {
+      notify.success(`Created ${scenarios.value.length} statement(s). Click Execute All to load them.`)
     }
+  } catch (err) {
+    notify.apiError(err, t('companiesLoadFailed'))
   } finally {
     createAllLoading.value = false
   }
@@ -375,11 +393,18 @@ async function createAllScenarios() {
 
 async function generateAllScenarios() {
   const runnable = scenarios.value.filter(s => s.companyId && s.from && s.to)
-  if (!runnable.length) return
+  if (!runnable.length) {
+    notify.warning('Select a company and date range first')
+    return
+  }
 
   generateAllLoading.value = true
   try {
-    await Promise.all(runnable.map(s => loadScenario(s)))
+    const results = await Promise.all(runnable.map(s => loadScenario(s, { silent: true })))
+    const failed = results.filter(ok => !ok).length
+    if (!failed) notify.success(`Loaded ${runnable.length} statement(s)`)
+    else if (failed === runnable.length) notify.error('Failed to load statements')
+    else notify.warning(`Loaded ${runnable.length - failed} statement(s), ${failed} failed`)
   } finally {
     generateAllLoading.value = false
   }
@@ -497,7 +522,7 @@ function formatDateRangeWithDay(from, to) {
   return `${formatDateWithDay(from)} to ${formatDateWithDay(to)}`
 }
 
-async function loadScenario(scenario) {
+async function loadScenario(scenario, { silent = false } = {}) {
   scenario.error = ''
   scenario.loading = true
   try {
@@ -508,11 +533,14 @@ async function loadScenario(scenario) {
     scenario.previousBalance = Number(res.data?.previousBalance || 0)
     scenario.companyName = res.data?.company?.name || ''
     scenario.loaded = true
+    return true
   } catch (err) {
     scenario.error = err?.response?.data?.message || 'Failed to load statement'
     scenario.rows = []
     scenario.previousBalance = 0
     scenario.loaded = false
+    if (!silent) notify.apiError(err, 'Failed to load statement')
+    return false
   } finally {
     scenario.loading = false
   }
@@ -533,6 +561,7 @@ async function loadComparison(scenario, comp) {
     comp.rows = []
     comp.previousBalance = 0
     comp.loaded = false
+    notify.apiError(err, 'Failed to load comparison')
   } finally {
     comp.loading = false
   }
@@ -540,7 +569,11 @@ async function loadComparison(scenario, comp) {
 
 onMounted(async () => {
   const restored = restoreScenarios()
-  await companyStore.fetch()
+  try {
+    await companyStore.fetch()
+  } catch (err) {
+    notify.apiError(err, t('companiesLoadFailed'))
+  }
   if (!restored && !scenarios.value.length) addScenario()
 })
 
@@ -728,6 +761,138 @@ watch(
     opacity: 1;
     transform: translateX(0);
   }
+}
+
+.statement-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .period-row,
+  .period-row.comparison-period-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .period-label,
+  .period-action-btn {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 767px) {
+  .statement-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .period-row,
+  .period-row.comparison-period-row {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 10px;
+  }
+}
+
+/* ── FX layer: scenario cards, pills, table ── */
+.page-container > .at-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px !important;
+}
+
+.page-container > .at-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #1565C0, #42A5F5, #F59E0B, #1565C0);
+  background-size: 300% 100%;
+}
+
+.period-row { transition: box-shadow 0.25s ease, transform 0.25s ease; }
+.period-row.main-period-row:hover { box-shadow: 0 10px 22px -14px rgba(21, 101, 192, 0.5); transform: translateY(-1px); }
+
+.statement-summary-pill {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.statement-summary-pill:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px -10px rgba(21, 101, 192, 0.5);
+}
+
+.statement-table tbody tr { transition: background-color 0.2s ease, box-shadow 0.2s ease; }
+
+.statement-table tbody tr:not(.statement-total-row):hover td {
+  background: linear-gradient(90deg, #EAF2FF, #F3EEFF);
+}
+
+.statement-table tbody tr:not(.statement-total-row):hover td:first-child {
+  box-shadow: inset 3px 0 0 #1565C0;
+}
+
+.statement-total-row td {
+  background: linear-gradient(90deg, #F1F5FB, #F8FAFC, #F1F5FB);
+  background-size: 200% 100%;
+}
+
+.statement-end-line { background-size: 200% 100%; transform-origin: left center; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-container > .at-card::before { animation: st-flow 8s linear infinite; }
+  .statement-summary-pill { animation: st-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
+  .statement-summary-pill:nth-child(2) { animation-delay: 0.06s; }
+  .statement-summary-pill:nth-child(3) { animation-delay: 0.12s; }
+  .statement-summary-pill:nth-child(4) { animation-delay: 0.18s; }
+  .statement-summary-pill:nth-child(5) { animation-delay: 0.24s; }
+  .statement-table tbody tr { animation: st-row 0.4s ease backwards; }
+  .statement-table tbody tr:nth-child(2) { animation-delay: 0.04s; }
+  .statement-table tbody tr:nth-child(3) { animation-delay: 0.08s; }
+  .statement-table tbody tr:nth-child(4) { animation-delay: 0.12s; }
+  .statement-table tbody tr:nth-child(5) { animation-delay: 0.16s; }
+  .statement-table tbody tr:nth-child(n + 6) { animation-delay: 0.2s; }
+  .statement-total-row td { animation: st-shimmer 4s linear infinite; }
+  .statement-end-line { animation: st-line 1s cubic-bezier(0.2, 0.8, 0.2, 1) backwards, st-flow 6s linear 1s infinite; }
+  .period-row.main-period-row .v-icon { animation: st-bob 3.6s ease-in-out infinite; }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .page-container > .at-card {
+      animation: st-scroll-in linear backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 30%;
+    }
+  }
+}
+
+@keyframes st-flow { to { background-position: -300% 0; } }
+@keyframes st-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@keyframes st-line { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+@keyframes st-pop {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes st-row {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes st-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes st-scroll-in {
+  from { opacity: 0; transform: translateY(32px) scale(0.98); }
+  to { opacity: 1; transform: none; }
 }
 
 </style>

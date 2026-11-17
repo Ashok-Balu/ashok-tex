@@ -31,6 +31,8 @@ services:
         value: 147117228816599
       - key: CLOUDINARY_SECRET
         value: DCF-Nt0jnq8eQKZ3V3lmf3lxiM4
+      - key: RENDER_EXTERNAL_URL
+        value: https://ashok-tex-backend.onrender.com
       
     rootDir: backend
     

@@ -1,13 +1,13 @@
 import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
 import { aliases, mdi } from 'vuetify/iconsets/mdi'
 import '@mdi/font/css/materialdesignicons.css'
 import 'vuetify/styles'
 
+// Components and directives are auto-imported per-file by vite-plugin-vuetify (tree-shaken).
 export default createVuetify({
-  components,
-  directives,
+  date: {
+    locale: { en: 'en-IN' },
+  },
   icons: {
     defaultSet: 'mdi',
     aliases,

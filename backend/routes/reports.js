@@ -2,7 +2,7 @@ const router   = require('express').Router()
 const ah       = require('express-async-handler')
 const auth     = require('../middleware/auth')
 const mongoose = require('mongoose')
-const { Payment, Production, Expense, Company, Order } = require('../models')
+const { Payment, PaymentAllocation, Production, Expense, Company, Order, Rejection } = require('../models')
 
 router.use(auth)
 
@@ -10,19 +10,34 @@ function getRange(req) {
   const now = new Date()
   const from = req.query.from ? new Date(req.query.from) : new Date(now.getFullYear(), now.getMonth(), 1)
   const to   = req.query.to   ? (() => { const d = new Date(req.query.to); d.setHours(23,59,59,999); return d })() : now
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    const err = new Error('Invalid date range')
+    err.status = 400
+    throw err
+  }
   return { from, to }
 }
 
 // GET /api/reports/monthly-payment-by-company
 router.get('/monthly-payment-by-company', ah(async (req, res) => {
   const { from, to } = getRange(req)
-  const [companies, receivedAgg, orderAgg] = await Promise.all([
+  const [companies, receivedAgg, allocatedAgg, closedAgg, orderAgg] = await Promise.all([
     Company.find({}, 'name'),
     Payment.aggregate([
       { $match: { date: { $gte: from, $lte: to }, transactionType: { $ne: 'deduction' } } },
       { $group: { _id: '$company', received: { $sum: '$amount' } } },
     ]),
+    PaymentAllocation.aggregate([
+      { $match: { date: { $gte: from, $lte: to } } },
+      { $group: { _id: '$company', allocated: { $sum: '$amount' } } },
+    ]),
+    // Closing an order is how receipts are allocated now
     Order.aggregate([
+      { $match: { status: 'closed', closedAt: { $gte: from, $lte: to } } },
+      { $group: { _id: '$company', allocated: { $sum: '$closedAmount' } } },
+    ]),
+    Order.aggregate([
+      { $match: { archived: { $ne: true } } },
       {
         $group: {
           _id: '$company',
@@ -30,7 +45,12 @@ router.get('/monthly-payment-by-company', ah(async (req, res) => {
           deduction: {
             $sum: {
               $multiply: [
-                { $ifNull: ['$producedMeter', 0] },
+                {
+                  $ifNull: [
+                    '$acceptedMeter',
+                    { $max: [0, { $subtract: [{ $ifNull: ['$producedMeter', 0] }, { $ifNull: ['$rejectedMeter', 0] }] }] },
+                  ],
+                },
                 { $ifNull: ['$ratePerMeter', 0] },
                 { $divide: [{ $ifNull: ['$deductionPct', 0] }, 100] },
               ],
@@ -43,13 +63,19 @@ router.get('/monthly-payment-by-company', ah(async (req, res) => {
 
   const nameMap = new Map(companies.map(c => [String(c._id), c.name]))
   const receivedMap = new Map(receivedAgg.map(r => [String(r._id), r.received || 0]))
+  const allocatedMap = new Map()
+  for (const r of [...allocatedAgg, ...closedAgg]) {
+    allocatedMap.set(String(r._id), (allocatedMap.get(String(r._id)) || 0) + (r.allocated || 0))
+  }
   const orderMap = new Map(orderAgg.map(r => [String(r._id), { orders: r.orders || 0, deduction: r.deduction || 0 }]))
-  const keys = new Set([...nameMap.keys(), ...receivedMap.keys(), ...orderMap.keys()])
+  const keys = new Set([...nameMap.keys(), ...receivedMap.keys(), ...allocatedMap.keys(), ...orderMap.keys()])
 
   const rows = Array.from(keys).map(id => ({
     company: nameMap.get(id) || 'Unknown',
     orders: orderMap.get(id)?.orders || 0,
     received: receivedMap.get(id) || 0,
+    allocated: allocatedMap.get(id) || 0,
+    unallocated: Math.max(0, (receivedMap.get(id) || 0) - (allocatedMap.get(id) || 0)),
     deduction: orderMap.get(id)?.deduction || 0,
   }))
 
@@ -69,7 +95,7 @@ router.get('/company-order-statement', ah(async (req, res) => {
   const [company, orders] = await Promise.all([
     Company.findById(companyObjectId).select('name'),
     Order.find({ company: companyObjectId })
-      .select('orderName status expectedMeter ratePerMeter deductionPct')
+      .select('orderName status expectedMeter ratePerMeter deductionPct rejectedMeter')
       .sort({ createdAt: 1 }),
   ])
 
@@ -86,7 +112,7 @@ router.get('/company-order-statement', ah(async (req, res) => {
 
   const orderIds = orders.map(o => o._id)
 
-  const [rangeProdAgg, beforeProdAgg, paidBeforeAgg] = await Promise.all([
+  const [rangeProdAgg, beforeProdAgg, rangeRejAgg, beforeRejAgg, paidBeforeAgg] = await Promise.all([
     Production.aggregate([
       { $match: { order: { $in: orderIds }, date: { $gte: from, $lte: to } } },
       { $group: { _id: '$order', produced: { $sum: '$meter' } } },
@@ -95,38 +121,47 @@ router.get('/company-order-statement', ah(async (req, res) => {
       { $match: { order: { $in: orderIds }, date: { $lt: from } } },
       { $group: { _id: '$order', produced: { $sum: '$meter' } } },
     ]),
+    Rejection.aggregate([
+      { $match: { order: { $in: orderIds }, date: { $gte: from, $lte: to } } },
+      { $group: { _id: '$order', rejected: { $sum: '$rejectedQty' } } },
+    ]),
+    Rejection.aggregate([
+      { $match: { order: { $in: orderIds }, date: { $lt: from } } },
+      { $group: { _id: '$order', rejected: { $sum: '$rejectedQty' } } },
+    ]),
+    // Money received from the company before the period starts
     Payment.aggregate([
-      {
-        $match: {
-          company: companyObjectId,
-          date: { $lte: to },
-          transactionType: { $ne: 'deduction' },
-        },
-      },
+      { $match: { company: companyObjectId, transactionType: { $in: ['receipt', 'payment'] }, date: { $lt: from } } },
       { $group: { _id: null, paid: { $sum: '$amount' } } },
     ]),
   ])
 
   const producedInRangeMap = new Map(rangeProdAgg.map(r => [String(r._id), Number(r.produced || 0)]))
   const producedBeforeMap = new Map(beforeProdAgg.map(r => [String(r._id), Number(r.produced || 0)]))
+  const rejectedInRangeMap = new Map(rangeRejAgg.map(r => [String(r._id), Number(r.rejected || 0)]))
+  const rejectedBeforeMap = new Map(beforeRejAgg.map(r => [String(r._id), Number(r.rejected || 0)]))
 
   const previousPayableTotal = orders.reduce((sum, order) => {
     const producedBefore = producedBeforeMap.get(String(order._id)) || 0
+    const rejected = rejectedBeforeMap.get(String(order._id)) || 0
+    const acceptedBefore = Math.max(0, producedBefore - rejected)
     const rate = Number(order.ratePerMeter || 0)
     const deductionPct = Number(order.deductionPct || 0)
-    const totalBefore = producedBefore * rate
+    const totalBefore = acceptedBefore * rate
     const deductionBefore = totalBefore * (deductionPct / 100)
     return sum + (totalBefore - deductionBefore)
   }, 0)
 
   const previousPaidTotal = Number(paidBeforeAgg[0]?.paid || 0)
-    const previousBalance = Number((previousPayableTotal - previousPaidTotal).toFixed(2))
+  const previousBalance = Number((previousPayableTotal - previousPaidTotal).toFixed(2))
 
   const rows = orders.map(order => {
     const produced = producedInRangeMap.get(String(order._id)) || 0
+    const rejectedInRange = rejectedInRangeMap.get(String(order._id)) || 0
+    const accepted = Math.max(0, produced - rejectedInRange)
     const ratePerMeter = Number(order.ratePerMeter || 0)
     const deductionPct = Number(order.deductionPct || 0)
-    const totalAmount = produced * ratePerMeter
+    const totalAmount = accepted * ratePerMeter
     const deductionAmt = totalAmount * (deductionPct / 100)
     const payableAmount = totalAmount - deductionAmt
 
@@ -135,6 +170,8 @@ router.get('/company-order-statement', ah(async (req, res) => {
       orderState: order.status || 'active',
       expectedQuantity: Number(order.expectedMeter || 0),
       produced: Number(produced.toFixed(2)),
+      accepted: Number(accepted.toFixed(2)),
+      rejected: Number(rejectedInRange.toFixed(2)),
       ratePerMeter,
       totalAmount: Number(totalAmount.toFixed(2)),
       deductionPct,
@@ -179,6 +216,7 @@ router.get('/production', ah(async (req, res) => {
     orderName:  a.order?.orderName || '-',
     morning:    a.shifts.find(s => s.shift === 'morning')?.total || 0,
     night:      a.shifts.find(s => s.shift === 'night')?.total   || 0,
+    day:        a.shifts.find(s => s.shift === 'day')?.total     || 0,
     totalMeter: a.totalMeter,
   })))
 }))
