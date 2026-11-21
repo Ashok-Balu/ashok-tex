@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 160" role="img" aria-label="Statement sheets with a chart">
+  <defs>
+    <linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#eaf2ff"/></linearGradient>
+  </defs>
+  <ellipse cx="130" cy="150" rx="110" ry="8" fill="#1e293b" opacity="0.1"/>
+  <rect x="40" y="30" width="110" height="112" rx="10" fill="#c7d9f7" transform="rotate(-8 95 86)"/>
+  <rect x="62" y="22" width="120" height="122" rx="10" fill="url(#s)" stroke="#bfd2f1"/>
+  <rect x="76" y="38" width="60" height="6" rx="3" fill="#1565c0"/>
+  <rect x="76" y="52" width="92" height="4" rx="2" fill="#cbd5e1"/>
+  <rect x="76" y="62" width="80" height="4" rx="2" fill="#cbd5e1"/>
+  <g fill="#42a5f5">
+    <rect x="80" y="104" width="14" height="28" rx="3"><animate attributeName="height" values="12;28;12" dur="3s" repeatCount="indefinite"/><animate attributeName="y" values="120;104;120" dur="3s" repeatCount="indefinite"/></rect>
+    <rect x="102" y="92" width="14" height="40" rx="3" fill="#1565c0"><animate attributeName="height" values="30;40;30" dur="3.6s" repeatCount="indefinite"/><animate attributeName="y" values="102;92;102" dur="3.6s" repeatCount="indefinite"/></rect>
+    <rect x="124" y="98" width="14" height="34" rx="3" fill="#f59e0b"><animate attributeName="height" values="20;34;20" dur="2.8s" repeatCount="indefinite"/><animate attributeName="y" values="112;98;112" dur="2.8s" repeatCount="indefinite"/></rect>
+    <rect x="146" y="84" width="14" height="48" rx="3" fill="#10b981"><animate attributeName="height" values="36;48;36" dur="3.2s" repeatCount="indefinite"/><animate attributeName="y" values="96;84;96" dur="3.2s" repeatCount="indefinite"/></rect>
+  </g>
+  <circle cx="206" cy="48" r="22" fill="#fbbf24"/><path d="M196 48 l8 8 l14 -16" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

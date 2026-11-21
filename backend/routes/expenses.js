@@ -22,6 +22,9 @@ router.put('/:id',  ah(async (req, res) => {
   const d = await Expense.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
   d ? res.json(d) : res.status(404).json({ message: 'Not found' })
 }))
-router.delete('/:id', ah(async (req, res) => { await Expense.findByIdAndDelete(req.params.id); res.json({ message: 'Deleted' }) }))
+router.delete('/:id', ah(async (req, res) => {
+  const d = await Expense.findByIdAndDelete(req.params.id)
+  d ? res.json({ message: 'Deleted' }) : res.status(404).json({ message: 'Not found' })
+}))
 
 module.exports = router
