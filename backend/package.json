@@ -7,7 +7,7 @@
     "start": "cross-env NODE_ENV=production node server.js",
     "dev": "cross-env NODE_ENV=development nodemon server.js",
     "test-server": "cross-env NODE_ENV=test nodemon server.js",
-    "test": "cross-env NODE_ENV=test node --test --test-concurrency=1 \"tests/*.test.js\"",
+    "test": "cross-env NODE_ENV=test node --test --test-concurrency=1 tests/auth-security.test.js tests/core-crud.test.js tests/finance-flow.test.js tests/financial.test.js tests/payroll.test.js tests/rate-limit.test.js",
     "seed": "cross-env NODE_ENV=development node seed.js --force",
     "seed:safe": "cross-env NODE_ENV=development node seed-safe.js --force",
     "seed:test": "cross-env NODE_ENV=test node seed-safe.js --force",
