@@ -506,6 +506,89 @@ async function createCompanyEntry(companyId, body, by) {
     await allocateDeductionPool(companyId)
     return { status: 201, body: doc }
   }
+  if (!(await Company.exists({ _id: companyId }))) {
+    return res.status(404).json({ message: 'Company not found' })
+  }
+
+  if (transactionType === 'payment_surplus') {
+    return withCompanyLock(companyId, async () => {
+      const { balance } = await getCompanyBalance(companyId)
+      const available = Math.max(0, balance)
+      // Unallocated is shown rounded to whole rupees, so accept up to the next rupee and store only what is available
+      const maxSurplus = Math.ceil(available - 0.01)
+      if (amount > maxSurplus + 0.01) {
+        return res.status(400).json({ message: `Surplus cannot exceed the unallocated receipt (\u20b9${maxSurplus})` })
+      }
+      const doc = await DeductionTransfer.create({
+        company: companyId,
+        type: 'payment_surplus',
+        amount: Math.min(amount, available),
+        reason: req.body.notes || '',
+        by: req.user?.username || '',
+        date: req.body.date ? new Date(req.body.date) : new Date(),
+      })
+      res.status(201).json(doc)
+    })
+  }
+
+  if (transactionType === 'payment_loss') {
+    return withCompanyLock(companyId, async () => {
+      const liveOrders = await Order.find({ company: companyId, deletedAt: null, archived: { $ne: true }, status: { $ne: 'closed' } })
+        .select('producedMeter rejectedMeter acceptedMeter ratePerMeter deductionPct').lean()
+      const payable = liveOrders.reduce((sum, o) => {
+        const produced = Number(o.producedMeter || 0)
+        const accepted = Number(o.acceptedMeter || Math.max(0, produced - Number(o.rejectedMeter || 0)))
+        const value = accepted * Number(o.ratePerMeter || 0)
+        return sum + value - value * (Number(o.deductionPct || 0) / 100)
+      }, 0)
+      const legacy = (await getLegacyAllocatedByOrder(liveOrders.map(o => o._id)))
+      const legacyAllocated = [...legacy.values()].reduce((s, v) => s + v, 0)
+      const { balance } = await getCompanyBalance(companyId)
+      const pending = Math.max(0, payable - legacyAllocated - Math.max(0, balance))
+      // Pending is shown rounded to whole rupees, so allow rounding up to the next rupee
+      const maxLoss = Math.ceil(pending - 0.01)
+      if (amount > maxLoss + 0.01) {
+        return res.status(400).json({ message: `Loss cannot exceed the payment still pending (₹${maxLoss})` })
+      }
+      const doc = await DeductionTransfer.create({
+        company: companyId,
+        type: 'payment_loss',
+        amount,
+        reason: req.body.notes || '',
+        by: req.user?.username || '',
+        date: req.body.date ? new Date(req.body.date) : new Date(),
+      })
+      res.status(201).json(doc)
+    })
+  }
+
+  if (transactionType === 'deduction_loss') {
+    return withCompanyLock(companyId, async () => {
+      const pos = (await getDeductionPositions([companyId])).get(String(companyId))
+      const liveOrders = await Order.find({ company: companyId, deletedAt: null, archived: { $ne: true } })
+        .select('status producedMeter rejectedMeter acceptedMeter ratePerMeter deductionPct closedDeduction').lean()
+      const liveDeduction = liveOrders.reduce((sum, o) => {
+        if (o.status === 'closed' && o.closedDeduction != null) return sum + Number(o.closedDeduction)
+        const produced = Number(o.producedMeter || 0)
+        const accepted = Number(o.acceptedMeter || Math.max(0, produced - Number(o.rejectedMeter || 0)))
+        return sum + accepted * Number(o.ratePerMeter || 0) * (Number(o.deductionPct || 0) / 100)
+      }, 0)
+      const owed = pos.outstanding + Math.max(0, liveDeduction - pos.credit)
+      if (amount > owed + 0.01) {
+        return res.status(400).json({ message: `Loss cannot exceed the deduction still to get (₹${Math.floor(owed)})` })
+      }
+      const doc = await DeductionTransfer.create({
+        company: companyId,
+        type: 'deduction_loss',
+        amount,
+        reason: req.body.notes || '',
+        by: req.user?.username || '',
+        date: req.body.date ? new Date(req.body.date) : new Date(),
+      })
+      await allocateDeductionPool(companyId)
+      res.status(201).json(doc)
+    })
+  }
 
   const doc = await Payment.create({
     company: companyId,
@@ -582,6 +665,35 @@ router.put('/company-payments/:companyId/:id', ah(async (req, res) => {
     }
   })
   res.status(result.status).json(result.body)
+}))
+
+router.delete('/deduction-loss/:id', ah(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid id' })
+  }
+  const entry = await DeductionTransfer.findOne({ _id: req.params.id, type: { $in: ['deduction_loss', 'payment_loss', 'payment_surplus'] } }).lean()
+  if (!entry) return res.status(404).json({ message: 'Not found' })
+
+  return withCompanyLock(entry.company, async () => {
+    if (entry.type === 'payment_surplus') {
+      await DeductionTransfer.deleteOne({ _id: entry._id })
+      return res.json({ message: 'Deleted' })
+    }
+    if (entry.type === 'payment_loss') {
+      const { balance } = await getCompanyBalance(String(entry.company))
+      if (balance < Number(entry.amount || 0) - 0.01) {
+        return res.status(400).json({ message: 'This loss is already used to close orders and cannot be deleted' })
+      }
+      await DeductionTransfer.deleteOne({ _id: entry._id })
+      return res.json({ message: 'Deleted' })
+    }
+    const pos = (await getDeductionPositions([String(entry.company)])).get(String(entry.company))
+    if (pos && pos.credit < Number(entry.amount || 0) - 0.01) {
+      return res.status(400).json({ message: 'This loss is already assigned to archived orders and cannot be deleted' })
+    }
+    await DeductionTransfer.deleteOne({ _id: entry._id })
+    res.json({ message: 'Deleted' })
+  })
 }))
 
 router.delete('/deduction-loss/:id', ah(async (req, res) => {
