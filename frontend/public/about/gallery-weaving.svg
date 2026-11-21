@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" role="img" aria-label="Weaving machines on the factory floor">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dbeafe"/><stop offset="1" stop-color="#eff6ff"/></linearGradient>
+    <linearGradient id="fl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cbd5e1"/><stop offset="1" stop-color="#94a3b8"/></linearGradient>
+    <linearGradient id="mc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#1e40af"/></linearGradient>
+  </defs>
+  <rect width="600" height="400" fill="url(#bg)"/>
+  <!-- windows -->
+  <g fill="#fff" opacity="0.9">
+    <rect x="40" y="30" width="120" height="70" rx="6"/><rect x="190" y="30" width="120" height="70" rx="6"/>
+    <rect x="340" y="30" width="120" height="70" rx="6"/><rect x="490" y="30" width="80" height="70" rx="6"/>
+  </g>
+  <g stroke="#bfdbfe" stroke-width="3"><path d="M100 30V100M250 30V100M400 30V100M530 30V100M40 65H160M190 65H310M340 65H460M490 65H570"/></g>
+  <rect y="300" width="600" height="100" fill="url(#fl)"/>
+  <!-- machines -->
+  <g>
+    <g transform="translate(40 150)">
+      <rect width="150" height="150" rx="8" fill="url(#mc)"/>
+      <rect x="14" y="16" width="122" height="64" rx="4" fill="#dbeafe"/>
+      <g stroke="#60a5fa" stroke-width="2"><path d="M26 16V80M40 16V80M54 16V80M68 16V80M82 16V80M96 16V80M110 16V80M124 16V80"/></g>
+      <rect x="14" y="96" width="122" height="38" rx="4" fill="#facc15"/>
+      <circle cx="40" cy="115" r="9" fill="#1e293b"/><circle cx="110" cy="115" r="9" fill="#1e293b"/>
+    </g>
+    <g transform="translate(225 150)">
+      <rect width="150" height="150" rx="8" fill="url(#mc)"/>
+      <rect x="14" y="16" width="122" height="64" rx="4" fill="#dbeafe"/>
+      <g stroke="#a78bfa" stroke-width="2"><path d="M26 16V80M40 16V80M54 16V80M68 16V80M82 16V80M96 16V80M110 16V80M124 16V80"/></g>
+      <rect x="14" y="96" width="122" height="38" rx="4" fill="#fb7185"/>
+      <circle cx="40" cy="115" r="9" fill="#1e293b"/><circle cx="110" cy="115" r="9" fill="#1e293b"/>
+    </g>
+    <g transform="translate(410 150)">
+      <rect width="150" height="150" rx="8" fill="url(#mc)"/>
+      <rect x="14" y="16" width="122" height="64" rx="4" fill="#dbeafe"/>
+      <g stroke="#34d399" stroke-width="2"><path d="M26 16V80M40 16V80M54 16V80M68 16V80M82 16V80M96 16V80M110 16V80M124 16V80"/></g>
+      <rect x="14" y="96" width="122" height="38" rx="4" fill="#34d399"/>
+      <circle cx="40" cy="115" r="9" fill="#1e293b"/><circle cx="110" cy="115" r="9" fill="#1e293b"/>
+    </g>
+  </g>
+  <ellipse cx="300" cy="312" rx="280" ry="10" fill="#0f172a" opacity="0.12"/>
+</svg>

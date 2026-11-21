@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" role="img" aria-label="Colourful yarn cones">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fdf2f8"/><stop offset="1" stop-color="#e0e7ff"/>
+    </linearGradient>
+    <linearGradient id="c1" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fb7185"/><stop offset="1" stop-color="#e11d48"/></linearGradient>
+    <linearGradient id="c2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient>
+    <linearGradient id="c3" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#d97706"/></linearGradient>
+    <linearGradient id="c4" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4ade80"/><stop offset="1" stop-color="#15803d"/></linearGradient>
+    <pattern id="wind" width="10" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(-18)">
+      <rect width="10" height="6" fill="none"/><rect y="4" width="10" height="1.6" fill="#000" opacity="0.12"/>
+    </pattern>
+  </defs>
+  <rect width="600" height="400" fill="url(#bg)"/>
+  <ellipse cx="300" cy="352" rx="260" ry="26" fill="#1e293b" opacity="0.1"/>
+  <g>
+    <path d="M70 340 L130 120 L190 340 Z" fill="url(#c1)"/><path d="M70 340 L130 120 L190 340 Z" fill="url(#wind)"/>
+    <rect x="62" y="336" width="136" height="16" rx="6" fill="#9f1239"/>
+    <path d="M215 340 L280 90 L345 340 Z" fill="url(#c2)"/><path d="M215 340 L280 90 L345 340 Z" fill="url(#wind)"/>
+    <rect x="206" y="336" width="148" height="16" rx="6" fill="#1e3a8a"/>
+    <path d="M370 340 L425 150 L480 340 Z" fill="url(#c3)"/><path d="M370 340 L425 150 L480 340 Z" fill="url(#wind)"/>
+    <rect x="362" y="336" width="126" height="16" rx="6" fill="#92400e"/>
+    <path d="M500 340 L540 210 L580 340 Z" fill="url(#c4)"/><path d="M500 340 L540 210 L580 340 Z" fill="url(#wind)"/>
+    <rect x="494" y="336" width="92" height="14" rx="5" fill="#14532d"/>
+  </g>
+  <path d="M130 120 C170 60 230 40 280 90" fill="none" stroke="#e11d48" stroke-width="3" stroke-linecap="round"/>
+  <path d="M280 90 C330 40 400 80 425 150" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
+</svg>

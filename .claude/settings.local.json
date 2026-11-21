@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(Get-Process -Name \"node\" -ErrorAction SilentlyContinue)"
+      "PowerShell(Get-Process -Name \"node\" -ErrorAction SilentlyContinue)",
+      "Bash(curl -s http://localhost:5000/api/health)",
+      "Bash(python3 -m json.tool)",
+      "Bash(node -e ' *)",
+      "Bash(curl -s http://localhost:5000/api/dashboard/company-payments/6a001ac0e841e380d5ca1879 -H \"Authorization: Bearer test\")",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

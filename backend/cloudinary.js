@@ -1,16 +1,25 @@
 const { v2: cloudinary } = require('cloudinary')
 
+// Detect placeholder/unconfigured cloud names so we never attempt an invalid upload
+const PLACEHOLDER_NAMES = new Set(['root', 'your_cloud_name_here', 'placeholder', 'example', 'change_me'])
+
+// render.yaml / .env.test use CLOUDINARY_NAME|KEY|SECRET; .env uses CLOUDINARY_CLOUD_NAME|API_KEY|API_SECRET
+const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_NAME
+const API_KEY    = process.env.CLOUDINARY_API_KEY    || process.env.CLOUDINARY_KEY
+const API_SECRET = process.env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_SECRET
+
 const isConfigured = Boolean(
-  process.env.CLOUDINARY_CLOUD_NAME &&
-  process.env.CLOUDINARY_API_KEY &&
-  process.env.CLOUDINARY_API_SECRET
+  CLOUD_NAME &&
+  !PLACEHOLDER_NAMES.has((CLOUD_NAME || '').toLowerCase()) &&
+  API_KEY &&
+  API_SECRET
 )
 
 if (isConfigured) {
   cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
+    cloud_name: CLOUD_NAME,
+    api_key: API_KEY,
+    api_secret: API_SECRET,
   })
 }
 
